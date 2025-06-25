@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wordle+</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&family=Roboto+Mono:wght@500&display=swap" rel="stylesheet">
+    <style>
+        /* --- Design System & Theming --- */
+        :root {
+            --primary-accent: #ec6744;
+            --background-soft: #f3f4f7;
+            --card-background: #ffffff;
+            --text-secondary: #707a9d;
+            --text-accessible: #5a6b8a; /* WCAG AA on light bg */
+            --present-color: #0284c7; /* Accessible Blue for "present" state */
+            --font-sans: 'Inter', sans-serif;
+            --font-mono: 'Roboto Mono', monospace;
+        }
+
+        body {
+            font-family: var(--font-sans);
+            background-color: var(--background-soft);
+            color: var(--text-accessible);
+            /* Subtle grain texture */
+            position: relative;
+        }
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAMAAAAp4XiGAAAAA1BMVEX///+nxBvIAAAAIElEQVR42mP4BwL+AQMDAwMDFxAg/gPAgKII/gNoAAsgAwC1X1f9AAAAAElFTkSuQmCC');
+            opacity: 0.05;
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        /* --- Custom Components & Styles --- */
+        .card {
+            background-color: var(--card-background);
+            border-radius: 16px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05), 0 10px 30px rgba(0,0,0,0.05);
+        }
+        .main-title {
+            font-family: var(--font-sans);
+            font-weight: 900;
+            color: var(--primary-accent);
+        }
+        .btn-primary {
+            background-color: var(--primary-accent);
+            color: white;
+            font-weight: 700;
+            border-radius: 12px;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(236, 103, 68, 0.4);
+        }
+
+        /* --- Game Grid & Tiles --- */
+        .tile {
+            font-family: var(--font-mono);
+            font-weight: 500;
+            font-size: 2.25rem;
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            width: 60px;
+            height: 60px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            transform-style: preserve-3d;
+        }
+        .tile-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            text-align: center;
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+        }
+        .tile.is-flipping .tile-inner {
+            transform: rotateX(180deg);
+        }
+        .tile-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            -webkit-backface-visibility: hidden; /* Safari */
+            backface-visibility: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: 6px;
+        }
+        .tile-back {
+            transform: rotateX(180deg);
+            color: white;
+        }
+        .tile.filled { border-color: var(--text-secondary); }
+        .tile.correct .tile-back { background-color: var(--primary-accent); border-color: var(--primary-accent); }
+        .tile.present .tile-back { background-color: var(--present-color); border-color: var(--present-color); }
+        .tile.absent .tile-back { background-color: var(--text-secondary); border-color: var(--text-secondary); }
+        
+        /* --- Keyboard --- */
+        .key {
+            font-weight: 700;
+            background-color: #d1d5db;
+            color: var(--text-accessible);
+            border-radius: 8px;
+            transition: all 0.2s ease;
+        }
+        .key:hover { background-color: #b9c0d3; }
+        .key.correct { background-color: var(--primary-accent); color: white; }
+        .key.present { background-color: var(--present-color); color: white; }
+        .key.absent { background-color: var(--text-secondary); color: white; }
+
+        /* --- Hint --- */
+        .hint-container {
+            border: 2px dashed #d1d5db;
+            color: #6b7280;
+            transition: all 0.2s ease;
+        }
+        .hint-container:hover:not(.is-revealed) {
+            border-color: var(--primary-accent);
+            color: var(--primary-accent);
+        }
+
+        /* --- Animations --- */
+        @keyframes pop-in {
+            0% { transform: scale(0.9); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        @keyframes shake {
+            10%, 90% { transform: translateX(-1px); }
+            20%, 80% { transform: translateX(2px); }
+            30%, 50%, 70% { transform: translateX(-4px); }
+            40%, 60% { transform: translateX(4px); }
+        }
+        .modal-enter { animation: pop-in 0.3s ease-out forwards; }
+        .timer.is-running { animation: pulse 2s infinite ease-in-out; }
+        .row.shake { animation: shake 0.82s cubic-bezier(.36,.07,.19,.97) both; }
+        .tile.pop { animation: pop-in 0.2s ease forwards; }
+
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-4">
+
+    <div id="app" class="w-full max-w-md mx-auto">
+
+        <!-- Landing Page -->
+        <div id="landing-page" class="card p-8 text-center modal-enter">
+            <h1 class="main-title text-5xl mb-4">Wordle+</h1>
+            <div class="text-left my-8 text-base space-y-2">
+                <h2 class="text-xl font-bold mb-2">How to Play:</h2>
+                <p>Guess the 5-letter word in 6 tries.</p>
+                <p><span class="font-bold" style="color:#ec6744;">Orange</span> = correct letter, correct spot.</p>
+                <p><span class="font-bold" style="color:#0284c7;">Blue</span> = correct letter, wrong spot.</p>
+                <p><span class="font-bold" style="color:#707a9d;">Gray</span> = letter not in the word.</p>
+            </div>
+            <button id="start-game-btn" class="w-full btn-primary py-4 px-4 text-xl">
+                Start Game
+            </button>
+        </div>
+
+        <!-- Game Interface -->
+        <div id="game-interface" class="hidden">
+            <header class="flex justify-between items-center mb-4 px-2">
+                <h1 class="main-title text-3xl">W+</h1>
+                <div class="text-right">
+                    <div id="timer" class="text-lg font-bold" style="color: var(--text-secondary);">00:00</div>
+                    <div class="text-sm text-gray-500">Attempt: <span id="attempt-counter">1</span>/6</div>
+                </div>
+            </header>
+            
+            <div class="card p-4">
+                <div id="hint-container" class="hint-container rounded-lg p-3 my-4 cursor-pointer text-center">
+                    <span id="hint-toggler" class="font-medium">💡 Tap for a hint</span>
+                    <span id="hint-text" class="hidden font-medium text-sm">Animal associated with a 2009 flu pandemic.</span>
+                </div>
+                <div id="grid" class="grid grid-rows-6 gap-2 mb-6">
+                    <!-- Rows generated by JS -->
+                </div>
+            </div>
+
+            <div id="keyboard" class="space-y-2 mt-6">
+                <!-- Keys generated by JS -->
+            </div>
+        </div>
+
+        <!-- Result Modal -->
+        <div id="result-modal" class="hidden fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4">
+            <div class="card p-8 w-full max-w-sm text-center modal-enter">
+                <div class="py-4 rounded-t-lg -mt-8">
+                    <h2 id="modal-title" class="text-4xl font-black"></h2>
+                </div>
+                <p id="modal-subtitle" class="text-xl mt-4"></p>
+                <p id="correct-word" class="text-4xl font-black tracking-widest uppercase my-4"></p>
+                <div class="bg-gray-100 p-4 rounded-lg">
+                     <h3 class="text-lg font-bold mb-3">Your Stats</h3>
+                     <div class="flex justify-around items-center">
+                        <div class="text-center"><div class="text-2xl font-bold" id="final-time"></div><div class="text-sm">Time</div></div>
+                        <div class="text-center"><div class="text-2xl font-bold" id="final-attempts"></div><div class="text-sm">Attempts</div></div>
+                        <div class="text-center"><div class="text-2xl font-bold" id="final-hint-used"></div><div class="text-sm">Hint Used</div></div>
+                     </div>
+                </div>
+                <button id="new-game-btn" class="mt-6 w-full btn-primary py-3 px-4 text-lg">
+                    Play Again
+                </button>
+            </div>
+        </div>
+    </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const elements = {
+        app: document.getElementById('app'),
+        landingPage: document.getElementById('landing-page'),
+        gameInterface: document.getElementById('game-interface'),
+        startGameBtn: document.getElementById('start-game-btn'),
+        grid: document.getElementById('grid'),
+        keyboard: document.getElementById('keyboard'),
+        timer: document.getElementById('timer'),
+        attemptCounter: document.getElementById('attempt-counter'),
+        hint: {
+            container: document.getElementById('hint-container'),
+            toggler: document.getElementById('hint-toggler'),
+            text: document.getElementById('hint-text')
+        },
+        modal: {
+            container: document.getElementById('result-modal'),
+            title: document.getElementById('modal-title'),
+            subtitle: document.getElementById('modal-subtitle'),
+            correctWord: document.getElementById('correct-word'),
+            finalTime: document.getElementById('final-time'),
+            finalAttempts: document.getElementById('final-attempts'),
+            finalHintUsed: document.getElementById('final-hint-used'),
+            newGameBtn: document.getElementById('new-game-btn')
+        }
+    };
+
+    const state = {
+        wordToGuess: "SWINE",
+        totalRows: 6,
+        totalCols: 5,
+        currentRow: 0,
+        currentCol: 0,
+        timerInterval: null,
+        seconds: 0,
+        isGameOver: false,
+        hintUsed: false,
+        isFlipping: false,
+    };
+
+    function init() {
+        createGrid();
+        createKeyboard();
+        attachEventListeners();
+        resetGame();
+    }
+
+    function resetGame() {
+        Object.assign(state, {
+            currentRow: 0, currentCol: 0, seconds: 0, isGameOver: false, hintUsed: false, isFlipping: false
+        });
+        clearInterval(state.timerInterval);
+        
+        elements.landingPage.style.display = 'block';
+        elements.gameInterface.style.display = 'none';
+        elements.modal.container.classList.add('hidden');
+        elements.timer.textContent = '00:00';
+        elements.timer.classList.remove('is-running');
+        elements.attemptCounter.textContent = '1';
+        
+        elements.hint.toggler.style.display = 'inline';
+        elements.hint.text.classList.add('hidden');
+        elements.hint.container.classList.remove('is-revealed');
+        elements.hint.container.style.cursor = 'pointer';
+
+        createGrid(); // Re-create grid to clear it
+        document.querySelectorAll('.key').forEach(key => key.className = 'key h-14 rounded-md font-bold uppercase p-2 flex-1');
+    }
+
+    function createGrid() {
+        elements.grid.innerHTML = '';
+        for (let i = 0; i < state.totalRows; i++) {
+            const row = document.createElement('div');
+            row.className = 'row grid grid-cols-5 gap-2';
+            row.id = `row-${i}`;
+            for (let j = 0; j < state.totalCols; j++) {
+                const tile = document.createElement('div');
+                tile.className = 'tile';
+                tile.id = `tile-${i}-${j}`;
+                tile.innerHTML = `
+                    <div class="tile-inner">
+                        <div class="tile-face tile-front"></div>
+                        <div class="tile-face tile-back"></div>
+                    </div>
+                `;
+                row.appendChild(tile);
+            }
+            elements.grid.appendChild(row);
+        }
+    }
+
+    function createKeyboard() {
+        const keys = [
+            'QWERTYUIOP'.split(''),
+            'ASDFGHJKL'.split(''),
+            ['ENTER', ...'ZXCVBNM'.split(''), 'BACK']
+        ];
+        elements.keyboard.innerHTML = '';
+        keys.forEach(rowKeys => {
+            const row = document.createElement('div');
+            row.className = 'flex justify-center gap-1.5';
+            rowKeys.forEach(keyChar => {
+                const key = document.createElement('button');
+                key.className = 'key h-14 rounded-md font-bold uppercase p-2 flex-1';
+                key.textContent = keyChar === 'BACK' ? '⌫' : keyChar;
+                key.dataset.key = keyChar;
+                if (keyChar.length > 1) key.classList.add('px-3', 'text-xs', 'flex-grow-[1.5]');
+                row.appendChild(key);
+            });
+            elements.keyboard.appendChild(row);
+        });
+    }
+
+    function startTimer() {
+        elements.timer.classList.add('is-running');
+        state.timerInterval = setInterval(() => {
+            state.seconds++;
+            const mins = String(Math.floor(state.seconds / 60)).padStart(2, '0');
+            const secs = String(state.seconds % 60).padStart(2, '0');
+            elements.timer.textContent = `${mins}:${secs}`;
+        }, 1000);
+    }
+    
+    function handleKeyPress(key) {
+        if (state.isGameOver || state.isFlipping) return;
+
+        if (key === 'BACK' || key === 'Backspace') deleteLetter();
+        else if (key === 'ENTER') submitGuess();
+        else if (key.length === 1 && key.match(/[a-z]/i)) addLetter(key.toUpperCase());
+    }
+
+    function addLetter(letter) {
+        if (state.currentCol < state.totalCols) {
+            const tile = document.getElementById(`tile-${state.currentRow}-${state.currentCol}`);
+            const backFace = tile.querySelector('.tile-back');
+            const frontFace = tile.querySelector('.tile-front');
+            
+            tile.classList.add('filled');
+            frontFace.textContent = letter;
+            backFace.textContent = letter;
+            
+            tile.style.animation = 'pop-in 0.1s ease';
+            setTimeout(() => tile.style.animation = '', 100);
+
+            state.currentCol++;
+        }
+    }
+
+    function deleteLetter() {
+        if (state.currentCol > 0) {
+            state.currentCol--;
+            const tile = document.getElementById(`tile-${state.currentRow}-${state.currentCol}`);
+            tile.classList.remove('filled');
+            tile.querySelector('.tile-front').textContent = '';
+            tile.querySelector('.tile-back').textContent = '';
+        }
+    }
+
+    async function submitGuess() {
+        if (state.currentCol !== state.totalCols) {
+            document.getElementById(`row-${state.currentRow}`).classList.add('shake');
+            setTimeout(() => document.getElementById(`row-${state.currentRow}`).classList.remove('shake'), 820);
+            return;
+        }
+
+        const guess = Array.from({ length: state.totalCols }, (_, i) =>
+            document.getElementById(`tile-${state.currentRow}-${i}`).querySelector('.tile-front').textContent
+        ).join('');
+
+        await flipRow(guess);
+        
+        if (guess === state.wordToGuess) endGame(true);
+        else if (state.currentRow < state.totalRows - 1) moveToNextRow();
+        else endGame(false);
+    }
+    
+    async function flipRow(guess) {
+        state.isFlipping = true;
+        const guessChars = guess.split('');
+        const wordChars = state.wordToGuess.split('');
+        const remainingWordChars = [...wordChars];
+        const rowTiles = document.querySelectorAll(`#row-${state.currentRow} .tile`);
+        const results = Array(state.totalCols).fill(null);
+
+        // First pass for 'correct'
+        guessChars.forEach((char, i) => {
+            if (char === wordChars[i]) {
+                results[i] = 'correct';
+                remainingWordChars[i] = null;
+            }
+        });
+
+        // Second pass for 'present'
+        guessChars.forEach((char, i) => {
+            if (results[i]) return;
+            const presentIndex = remainingWordChars.indexOf(char);
+            if (presentIndex > -1) {
+                results[i] = 'present';
+                remainingWordChars[presentIndex] = null;
+            } else {
+                results[i] = 'absent';
+            }
+        });
+
+        for (let i = 0; i < state.totalCols; i++) {
+            const tile = rowTiles[i];
+            const key = document.querySelector(`.key[data-key="${guessChars[i]}"]`);
+            
+            await new Promise(resolve => setTimeout(resolve, 150));
+            tile.classList.add('is-flipping', results[i]);
+            
+            const currentKeyClass = key.classList.contains('correct') ? 'correct' : (key.classList.contains('present') ? 'present' : '');
+            const newClass = results[i];
+            
+            // Update keyboard with best result
+            if (newClass === 'correct' || (newClass === 'present' && currentKeyClass !== 'correct')) {
+                key.classList.remove('present', 'absent');
+                key.classList.add(newClass);
+            } else if (newClass === 'absent' && !currentKeyClass) {
+                 key.classList.add('absent');
+            }
+        }
+        state.isFlipping = false;
+    }
+
+    function moveToNextRow() {
+        state.currentRow++;
+        state.currentCol = 0;
+        elements.attemptCounter.textContent = state.currentRow + 1;
+    }
+
+    function endGame(isWin) {
+        state.isGameOver = true;
+        clearInterval(state.timerInterval);
+        elements.timer.classList.remove('is-running');
+        
+        setTimeout(() => {
+            elements.modal.title.textContent = isWin ? '🎉 Success!' : '😥 Try Again';
+            elements.modal.subtitle.textContent = isWin ? 'You got it!' : 'The word was:';
+            elements.modal.correctWord.textContent = state.wordToGuess;
+            elements.modal.correctWord.style.color = isWin ? 'var(--primary-accent)' : 'var(--text-secondary)';
+            elements.modal.finalTime.textContent = elements.timer.textContent;
+            elements.modal.finalAttempts.textContent = `${state.currentRow + 1}/${state.totalRows}`;
+            elements.modal.finalHintUsed.textContent = state.hintUsed ? 'Yes' : 'No';
+            elements.modal.container.classList.remove('hidden');
+        }, 1000);
+    }
+    
+    function attachEventListeners() {
+        elements.startGameBtn.addEventListener('click', () => {
+            elements.landingPage.style.display = 'none';
+            elements.gameInterface.style.display = 'block';
+            startTimer();
+        });
+
+        elements.modal.newGameBtn.addEventListener('click', resetGame);
+
+        elements.hint.container.addEventListener('click', () => {
+            if (!state.hintUsed && !elements.hint.container.classList.contains('is-revealed')) {
+                state.hintUsed = true;
+                elements.hint.container.classList.add('is-revealed');
+                elements.hint.toggler.style.display = 'none';
+                elements.hint.text.classList.remove('hidden');
+                elements.hint.container.style.cursor = 'default';
+            }
+        });
+
+        elements.keyboard.addEventListener('click', (e) => {
+            if (e.target.matches('button.key')) handleKeyPress(e.target.dataset.key);
+        });
+        
+        document.addEventListener('keydown', (e) => {
+            if (elements.gameInterface.style.display === 'block') handleKeyPress(e.key);
+        });
+    }
+
+    init();
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,1059 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wordle+ | Modern Daily Word Challenge</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-orange: #ec6744;
+            --primary-orange-dark: #d4573a;
+            --soft-bg: #f3f4f7;
+            --card-white: #ffffff;
+            --secondary-blue: #707a9d;
+            --accessible-blue: #5a6b8a;
+            --success-green: #28a745;
+            --warning-blue: #0284c7;
+            --neutral-gray: #6c757d;
+            --light-gray: #f8f9fa;
+            --border-gray: #e9ecef;
+            --text-dark: #2c3e50;
+            
+            --shadow-card: 0 4px 12px rgba(90, 107, 138, 0.15);
+            --shadow-button: 0 2px 8px rgba(236, 103, 68, 0.25);
+            --shadow-modal: 0 8px 32px rgba(90, 107, 138, 0.25);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            background: var(--soft-bg);
+            color: var(--text-dark);
+            line-height: 1.5;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .game-container {
+            width: 100%;
+            max-width: 400px;
+            background: linear-gradient(to bottom, var(--card-white), var(--light-gray));
+            border-radius: 20px;
+            box-shadow: var(--shadow-card);
+            overflow: hidden;
+            position: relative;
+        }
+
+        .game-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(circle at 20% 20%, rgba(240, 240, 240, 0.3) 1px, transparent 1px),
+                radial-gradient(circle at 80% 40%, rgba(240, 240, 240, 0.2) 1px, transparent 1px),
+                radial-gradient(circle at 50% 70%, rgba(240, 240, 240, 0.3) 1px, transparent 1px);
+            background-size: 100px 100px;
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--primary-orange), var(--primary-orange-dark));
+            color: white;
+            text-align: center;
+            padding: 24px 20px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .header .subtitle {
+            font-size: 14px;
+            opacity: 0.9;
+            font-weight: 500;
+        }
+
+        .game-stats {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            background: var(--card-white);
+            border-bottom: 1px solid var(--border-gray);
+            position: relative;
+            z-index: 1;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-dark);
+            display: block;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            color: var(--accessible-blue);
+            font-weight: 500;
+        }
+
+        .hint-section {
+            margin: 16px 20px;
+            background: var(--light-gray);
+            border-radius: 12px;
+            border: 1px solid var(--border-gray);
+            overflow: hidden;
+            position: relative;
+            z-index: 1;
+        }
+
+        .hint-toggle {
+            padding: 16px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background-color 0.2s ease;
+        }
+
+        .hint-toggle:hover {
+            background: rgba(112, 122, 157, 0.05);
+        }
+
+        .hint-text {
+            font-size: 14px;
+            color: var(--accessible-blue);
+            font-weight: 500;
+        }
+
+        .hint-arrow {
+            color: var(--secondary-blue);
+            font-weight: bold;
+            transition: transform 0.3s ease;
+        }
+
+        .hint-arrow.expanded {
+            transform: rotate(180deg);
+        }
+
+        .hint-content {
+            padding: 0 16px;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease, padding 0.3s ease;
+        }
+
+        .hint-content.expanded {
+            max-height: 120px;
+            padding: 0 16px 16px 16px;
+        }
+
+        .hint-message {
+            background: rgba(90, 107, 138, 0.1);
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            color: var(--text-dark);
+            margin-bottom: 8px;
+        }
+
+        .game-board {
+            padding: 20px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-rows: repeat(6, 1fr);
+            gap: 8px;
+            margin-bottom: 24px;
+        }
+
+        .row {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 8px;
+        }
+
+        .tile {
+            width: 56px;
+            height: 56px;
+            border: 2px solid var(--border-gray);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'SF Mono', Consolas, 'Liberation Mono', Menlo, monospace;
+            font-size: 24px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: var(--card-white);
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        .tile.filled {
+            background: var(--light-gray);
+            border-color: var(--primary-orange);
+            color: var(--text-dark);
+        }
+
+        .tile.current {
+            border-color: var(--primary-orange);
+            border-width: 3px;
+            animation: pulse 1s infinite;
+        }
+
+        .tile.correct {
+            background: var(--success-green);
+            border-color: var(--success-green);
+            color: white;
+            animation: flip 0.5s ease-in-out;
+        }
+
+        .tile.wrong-position {
+            background: var(--warning-blue);
+            border-color: var(--warning-blue);
+            color: white;
+            animation: flip 0.5s ease-in-out;
+        }
+
+        .tile.wrong {
+            background: var(--neutral-gray);
+            border-color: var(--neutral-gray);
+            color: white;
+            animation: flip 0.5s ease-in-out;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        @keyframes flip {
+            0% { transform: rotateY(0); }
+            50% { transform: rotateY(90deg); }
+            100% { transform: rotateY(0); }
+        }
+
+        @keyframes bounce {
+            0%, 20%, 60%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-10px); }
+            80% { transform: translateY(-5px); }
+        }
+
+        .controls {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 24px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-orange), var(--primary-orange-dark));
+            color: white;
+            box-shadow: var(--shadow-button);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(236, 103, 68, 0.35);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .btn-secondary {
+            background: var(--light-gray);
+            color: var(--accessible-blue);
+            border: 1px solid var(--border-gray);
+        }
+
+        .btn-secondary:hover {
+            background: var(--border-gray);
+        }
+
+        .keyboard {
+            background: var(--card-white);
+            border-radius: 16px;
+            padding: 16px;
+            margin: 0 20px 20px 20px;
+            box-shadow: var(--shadow-card);
+            position: relative;
+            z-index: 1;
+        }
+
+        .keyboard-row {
+            display: flex;
+            justify-content: center;
+            gap: 4px;
+            margin-bottom: 8px;
+        }
+
+        .key {
+            min-width: 32px;
+            height: 40px;
+            border: 1px solid var(--border-gray);
+            border-radius: 6px;
+            background: var(--light-gray);
+            color: var(--text-dark);
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.1s ease;
+            user-select: none;
+        }
+
+        .key:hover {
+            background: var(--border-gray);
+        }
+
+        .key:active {
+            transform: scale(0.95);
+        }
+
+        .key.wide {
+            min-width: 60px;
+            font-size: 12px;
+        }
+
+        .key.used-correct {
+            background: var(--success-green);
+            color: white;
+            border-color: var(--success-green);
+        }
+
+        .key.used-wrong-position {
+            background: var(--warning-blue);
+            color: white;
+            border-color: var(--warning-blue);
+        }
+
+        .key.used-wrong {
+            background: var(--neutral-gray);
+            color: white;
+            border-color: var(--neutral-gray);
+        }
+
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(90, 107, 138, 0.1);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+
+        .modal.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal-content {
+            background: linear-gradient(to bottom, var(--card-white), var(--light-gray));
+            border-radius: 20px;
+            padding: 0;
+            max-width: 320px;
+            width: 90%;
+            box-shadow: var(--shadow-modal);
+            transform: scale(0.9) translateY(20px);
+            transition: transform 0.3s ease;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .modal.active .modal-content {
+            transform: scale(1) translateY(0);
+        }
+
+        .modal-header {
+            background: linear-gradient(135deg, var(--primary-orange), var(--primary-orange-dark));
+            color: white;
+            text-align: center;
+            padding: 24px 20px;
+        }
+
+        .modal-header h2 {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .modal-body {
+            padding: 24px 20px;
+            text-align: center;
+            position: relative;
+            z-index: 1;
+        }
+
+        .result-word {
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--text-dark);
+            margin-bottom: 8px;
+            letter-spacing: 2px;
+        }
+
+        .result-message {
+            font-size: 16px;
+            color: var(--accessible-blue);
+            margin-bottom: 24px;
+        }
+
+        .stats-grid {
+            background: var(--light-gray);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 24px;
+            border: 1px solid var(--border-gray);
+        }
+
+        .stats-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-dark);
+            margin-bottom: 12px;
+        }
+
+        .stat-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .stat-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 12px;
+            font-size: 12px;
+            color: white;
+            font-weight: 600;
+        }
+
+        .stat-icon.time {
+            background: var(--primary-orange);
+        }
+
+        .stat-icon.attempts {
+            background: var(--success-green);
+        }
+
+        .stat-icon.hint {
+            background: var(--secondary-blue);
+        }
+
+        .welcome-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            padding: 40px 20px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .welcome-title {
+            font-size: 24px;
+            font-weight: 600;
+            color: var(--text-dark);
+            margin-bottom: 32px;
+        }
+
+        .how-to-play {
+            background: var(--light-gray);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 32px;
+            border: 1px solid var(--border-gray);
+            width: 100%;
+            max-width: 280px;
+        }
+
+        .how-to-play h3 {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-dark);
+            margin-bottom: 16px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 12px;
+            font-size: 14px;
+        }
+
+        .legend-tile {
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            margin-right: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 16px;
+            color: white;
+        }
+
+        .game-info {
+            font-size: 14px;
+            color: var(--accessible-blue);
+            margin-bottom: 32px;
+            padding: 12px;
+            background: rgba(90, 107, 138, 0.1);
+            border-radius: 8px;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        @media (max-width: 480px) {
+            .game-container {
+                max-width: 100%;
+                border-radius: 0;
+                min-height: 100vh;
+            }
+            
+            .tile {
+                width: 48px;
+                height: 48px;
+                font-size: 20px;
+            }
+            
+            .key {
+                min-width: 28px;
+                height: 36px;
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div class="header">
+            <h1>Wordle+</h1>
+        
+        </div>
+
+        <!-- Welcome Screen -->
+        <div id="welcomeScreen" class="welcome-screen">
+            
+            <div class="how-to-play">
+                <h3>How to Play</h3>
+                <div class="legend-item">
+                    <div class="legend-tile" style="background: var(--success-green);">S</div>
+                    <span>Correct position</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-tile" style="background: #0284c7;">W</div>
+                    <span>Wrong position</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-tile" style="background: var(--neutral-gray);">X</div>
+                    <span>Not in word</span>
+                </div>
+                <div style="margin-top: 16px; font-size: 14px; color: var(--accessible-blue);">
+                    <div>• 6 attempts to guess the word</div>
+                    <div>• Timer tracks your speed</div>
+                </div>
+            </div>
+
+            <div class="game-info">
+                ⏱️ Timer starts when you begin!
+            </div>
+
+            <button class="btn btn-primary" onclick="startGame()">Start Game</button>
+        </div>
+
+        <!-- Game Interface -->
+        <div id="gameInterface" class="hidden">
+            <div class="game-stats">
+                <div class="stat-item">
+                    <span class="stat-value" id="timer">00:00</span>
+                    <span class="stat-label">Time</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value" id="attempts">1 / 6</span>
+                    <span class="stat-label">Attempt</span>
+                </div>
+            </div>
+
+            <div class="hint-section">
+                <div class="hint-toggle" onclick="toggleHint()">
+                    <span class="hint-text">💡 Tap for hint</span>
+                    <span class="hint-arrow" id="hintArrow">⌄</span>
+                </div>
+                <div class="hint-content" id="hintContent">
+                    <div class="hint-message">
+                        "Animal associated with a 2009 flu pandemic"<br>
+                        <small style="color: var(--accessible-blue);">5 letters</small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="game-board">
+                <div class="grid" id="gameGrid"></div>
+                
+                <div class="controls">
+                    <button class="btn btn-primary" onclick="submitGuess()" id="submitBtn" disabled>Submit</button>
+                    <button class="btn btn-secondary" onclick="clearCurrentRow()">Clear</button>
+                </div>
+            </div>
+
+            <div class="keyboard" id="keyboard"></div>
+        </div>
+    </div>
+
+    <!-- Success Modal -->
+    <div class="modal" id="successModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">🎉 Fantastic!</h2>
+            </div>
+            <div class="modal-body">
+                <div class="result-word" id="resultWord">SWINE</div>
+                <div class="result-message" id="resultMessage">You solved it!</div>
+                
+                <div class="stats-grid">
+                    <div class="stats-title">Your Performance</div>
+                    <div class="stat-row">
+                        <div class="stat-icon time">⏱</div>
+                        <span id="finalTime">Time: 02:47</span>
+                    </div>
+                    <div class="stat-row">
+                        <div class="stat-icon attempts">🎯</div>
+                        <span id="finalAttempts">Attempts: 3/6</span>
+                    </div>
+                    <div class="stat-row">
+                        <div class="stat-icon hint">💡</div>
+                        <span id="hintUsed">Hint used: No</span>
+                    </div>
+                </div>
+                
+                <button class="btn btn-primary" onclick="newGame()">New Game</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Game state
+        let gameState = {
+            target: 'SWINE',
+            currentRow: 0,
+            currentCol: 0,
+            gameGrid: [],
+            gameActive: true,
+            startTime: null,
+            endTime: null,
+            hintUsed: false,
+            timer: null
+        };
+
+        const keyboard = [
+            ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'],
+            ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'],
+            ['ENTER', 'Z', 'X', 'C', 'V', 'B', 'N', 'M', 'BACK']
+        ];
+
+        // Initialize game
+        function initGame() {
+            // Initialize grid
+            gameState.gameGrid = Array(6).fill().map(() => Array(5).fill(''));
+            
+            // Create grid HTML
+            const gridElement = document.getElementById('gameGrid');
+            gridElement.innerHTML = '';
+            
+            for (let row = 0; row < 6; row++) {
+                const rowDiv = document.createElement('div');
+                rowDiv.className = 'row';
+                
+                for (let col = 0; col < 5; col++) {
+                    const tile = document.createElement('div');
+                    tile.className = 'tile';
+                    tile.id = `tile-${row}-${col}`;
+                    rowDiv.appendChild(tile);
+                }
+                
+                gridElement.appendChild(rowDiv);
+            }
+            
+            // Create keyboard
+            createKeyboard();
+            
+            // Set current tile
+            updateCurrentTile();
+        }
+
+        function createKeyboard() {
+            const keyboardElement = document.getElementById('keyboard');
+            keyboardElement.innerHTML = '';
+            
+            keyboard.forEach(row => {
+                const rowDiv = document.createElement('div');
+                rowDiv.className = 'keyboard-row';
+                
+                row.forEach(key => {
+                    const keyButton = document.createElement('button');
+                    keyButton.className = 'key';
+                    keyButton.textContent = key;
+                    keyButton.onclick = () => handleKeyPress(key);
+                    
+                    if (key === 'ENTER' || key === 'BACK') {
+                        keyButton.classList.add('wide');
+                    }
+                    
+                    rowDiv.appendChild(keyButton);
+                });
+                
+                keyboardElement.appendChild(rowDiv);
+            });
+        }
+
+        function startGame() {
+            document.getElementById('welcomeScreen').classList.add('hidden');
+            document.getElementById('gameInterface').classList.remove('hidden');
+            
+            gameState.startTime = new Date();
+            startTimer();
+            initGame();
+        }
+
+        function startTimer() {
+            gameState.timer = setInterval(() => {
+                if (gameState.startTime && !gameState.endTime) {
+                    const elapsed = new Date() - gameState.startTime;
+                    const minutes = Math.floor(elapsed / 60000);
+                    const seconds = Math.floor((elapsed % 60000) / 1000);
+                    document.getElementById('timer').textContent = 
+                        `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                }
+            }, 1000);
+        }
+
+        function toggleHint() {
+            const content = document.getElementById('hintContent');
+            const arrow = document.getElementById('hintArrow');
+            
+            if (content.classList.contains('expanded')) {
+                content.classList.remove('expanded');
+                arrow.classList.remove('expanded');
+            } else {
+                content.classList.add('expanded');
+                arrow.classList.add('expanded');
+                gameState.hintUsed = true;
+            }
+        }
+
+        function handleKeyPress(key) {
+            if (!gameState.gameActive) return;
+            
+            if (key === 'ENTER') {
+                submitGuess();
+            } else if (key === 'BACK') {
+                deleteLetter();
+            } else if (key.length === 1 && gameState.currentCol < 5) {
+                addLetter(key);
+            }
+        }
+
+        function addLetter(letter) {
+            if (gameState.currentCol < 5) {
+                gameState.gameGrid[gameState.currentRow][gameState.currentCol] = letter;
+                updateTile(gameState.currentRow, gameState.currentCol, letter);
+                gameState.currentCol++;
+                updateCurrentTile();
+                updateSubmitButton();
+            }
+        }
+
+        function deleteLetter() {
+            if (gameState.currentCol > 0) {
+                gameState.currentCol--;
+                gameState.gameGrid[gameState.currentRow][gameState.currentCol] = '';
+                updateTile(gameState.currentRow, gameState.currentCol, '');
+                updateCurrentTile();
+                updateSubmitButton();
+            }
+        }
+
+        function updateTile(row, col, letter) {
+            const tile = document.getElementById(`tile-${row}-${col}`);
+            tile.textContent = letter;
+            tile.className = 'tile';
+            
+            if (letter) {
+                tile.classList.add('filled');
+            }
+        }
+
+        function updateCurrentTile() {
+            // Remove current class from all tiles
+            document.querySelectorAll('.tile').forEach(tile => {
+                tile.classList.remove('current');
+            });
+            
+            // Add current class to current tile
+            if (gameState.currentCol < 5 && gameState.gameActive) {
+                const currentTile = document.getElementById(`tile-${gameState.currentRow}-${gameState.currentCol}`);
+                if (currentTile) {
+                    currentTile.classList.add('current');
+                }
+            }
+        }
+
+        function updateSubmitButton() {
+            const submitBtn = document.getElementById('submitBtn');
+            const currentRowFilled = gameState.gameGrid[gameState.currentRow].every(cell => cell !== '');
+            submitBtn.disabled = !currentRowFilled;
+        }
+
+        function submitGuess() {
+            const currentRowFilled = gameState.gameGrid[gameState.currentRow].every(cell => cell !== '');
+            if (!currentRowFilled || !gameState.gameActive) return;
+            
+            const guess = gameState.gameGrid[gameState.currentRow].join('');
+            evaluateGuess(guess);
+            
+            if (guess === gameState.target) {
+                // Win
+                gameWon();
+            } else if (gameState.currentRow === 5) {
+                // Lost
+                gameLost();
+            } else {
+                // Next row
+                gameState.currentRow++;
+                gameState.currentCol = 0;
+                updateCurrentTile();
+                updateSubmitButton();
+                updateAttempts();
+            }
+        }
+
+        function evaluateGuess(guess) {
+            const target = gameState.target;
+            const result = [];
+            const targetCounts = {};
+            
+            // Count letters in target
+            for (let letter of target) {
+                targetCounts[letter] = (targetCounts[letter] || 0) + 1;
+            }
+            
+            // First pass: mark correct positions
+            for (let i = 0; i < 5; i++) {
+                if (guess[i] === target[i]) {
+                    result[i] = 'correct';
+                    targetCounts[guess[i]]--;
+                }
+            }
+            
+            // Second pass: mark wrong positions and wrong letters
+            for (let i = 0; i < 5; i++) {
+                if (result[i] !== 'correct') {
+                    if (targetCounts[guess[i]] > 0) {
+                        result[i] = 'wrong-position';
+                        targetCounts[guess[i]]--;
+                    } else {
+                        result[i] = 'wrong';
+                    }
+                }
+            }
+            
+            // Animate and update tiles
+            for (let i = 0; i < 5; i++) {
+                setTimeout(() => {
+                    const tile = document.getElementById(`tile-${gameState.currentRow}-${i}`);
+                    tile.classList.add(result[i]);
+                    updateKeyboardKey(guess[i], result[i]);
+                }, i * 100);
+            }
+        }
+
+        function updateKeyboardKey(letter, result) {
+            const keys = document.querySelectorAll('.key');
+            keys.forEach(key => {
+                if (key.textContent === letter) {
+                    // Only update if it's not already marked as correct
+                    if (!key.classList.contains('used-correct')) {
+                        key.classList.remove('used-wrong-position', 'used-wrong');
+                        key.classList.add(`used-${result}`);
+                    }
+                }
+            });
+        }
+
+        function clearCurrentRow() {
+            for (let i = 0; i < 5; i++) {
+                gameState.gameGrid[gameState.currentRow][i] = '';
+                updateTile(gameState.currentRow, i, '');
+            }
+            gameState.currentCol = 0;
+            updateCurrentTile();
+            updateSubmitButton();
+        }
+
+        function updateAttempts() {
+            document.getElementById('attempts').textContent = `${gameState.currentRow + 1} / 6`;
+        }
+
+        function gameWon() {
+            gameState.gameActive = false;
+            gameState.endTime = new Date();
+            clearInterval(gameState.timer);
+            
+            setTimeout(() => {
+                showSuccessModal(true);
+            }, 1000);
+        }
+
+        function gameLost() {
+            gameState.gameActive = false;
+            gameState.endTime = new Date();
+            clearInterval(gameState.timer);
+            
+            setTimeout(() => {
+                showSuccessModal(false);
+            }, 1000);
+        }
+
+        function showSuccessModal(won) {
+            const modal = document.getElementById('successModal');
+            const title = document.getElementById('modalTitle');
+            const message = document.getElementById('resultMessage');
+            const word = document.getElementById('resultWord');
+            
+            if (won) {
+                title.textContent = '🎉 Fantastic!';
+                message.textContent = 'You solved it!';
+            } else {
+                title.textContent = '😔 Game Over';
+                message.textContent = 'Better luck next time!';
+            }
+            
+            word.textContent = gameState.target;
+            
+            // Update stats
+            const elapsed = gameState.endTime - gameState.startTime;
+            const minutes = Math.floor(elapsed / 60000);
+            const seconds = Math.floor((elapsed % 60000) / 1000);
+            const timeString = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            
+            document.getElementById('finalTime').textContent = `Time: ${timeString}`;
+            document.getElementById('finalAttempts').textContent = `Attempts: ${gameState.currentRow + (won ? 1 : 0)}/6`;
+            document.getElementById('hintUsed').textContent = `Hint used: ${gameState.hintUsed ? 'Yes' : 'No'}`;
+            
+            modal.classList.add('active');
+        }
+
+        function newGame() {
+            // Reset game state
+            gameState = {
+                target: 'SWINE', // In a real app, this would be randomized
+                currentRow: 0,
+                currentCol: 0,
+                gameGrid: [],
+                gameActive: true,
+                startTime: null,
+                endTime: null,
+                hintUsed: false,
+                timer: null
+            };
+            
+            // Hide modal
+            document.getElementById('successModal').classList.remove('active');
+            
+            // Reset UI
+            document.getElementById('timer').textContent = '00:00';
+            document.getElementById('attempts').textContent = '1 / 6';
+            
+            // Reset hint
+            document.getElementById('hintContent').classList.remove('expanded');
+            document.getElementById('hintArrow').classList.remove('expanded');
+            
+            // Restart game
+            gameState.startTime = new Date();
+            startTimer();
+            initGame();
+        }
+
+        // Keyboard event listeners
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                submitGuess();
+            } else if (e.key === 'Backspace') {
+                deleteLetter();
+            } else if (e.key.match(/[a-zA-Z]/) && e.key.length === 1) {
+                addLetter(e.key.toUpperCase());
+            }
+        });
+
+        // Close modal when clicking outside
+        document.getElementById('successModal').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                e.currentTarget.classList.remove('active');
+            }
+        });
+
+        // Prevent zoom on mobile when tapping inputs
+        document.addEventListener('touchstart', (e) => {
+            if (e.touches.length > 1) {
+                e.preventDefault();
+            }
+        });
+    </script>
+</body>
+</html>
