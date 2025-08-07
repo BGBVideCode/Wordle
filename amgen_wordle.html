@@ -4,499 +4,137 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Amgen Wordle</title>
+    <!-- Use Inter font -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        :root {
-            --primary-blue: #465562;
-            --accent-orange: #eb9f40;
-            --white: #ffffff;
-            --light-blue: #7b96ac;
-            --success: #22c55e;
-            --warning: #f59e0b;
-            --error: #ef4444;
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
         body {
             font-family: 'Inter', sans-serif;
-            background: linear-gradient(135deg, var(--white) 0%, #f8fafc 100%);
-            color: var(--primary-blue);
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 1rem;
         }
 
-        .header {
-            text-align: center;
-            margin-bottom: 2rem;
-            width: 100%;
-            max-width: 500px;
+        .fade-in {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
-        .title {
-            font-size: 2.5rem;
-            font-weight: 700;
-            color: var(--primary-blue);
-            margin-bottom: 0.5rem;
-            text-shadow: 0 2px 4px rgba(70, 85, 98, 0.1);
+        .flip {
+            animation: flipTile 0.6s ease-in-out forwards;
         }
 
-        .subtitle {
-            color: var(--light-blue);
-            font-size: 0.9rem;
-            font-weight: 500;
-            margin-top: 0.5rem;
+        @keyframes flipTile {
+            0% { transform: rotateX(0deg); }
+            50% { transform: rotateX(90deg); color: transparent; }
+            100% { transform: rotateX(0deg); }
         }
 
-        .game-controls {
-            display: flex;
-            gap: 1rem;
-            margin-bottom: 2rem;
-            flex-wrap: wrap;
-            justify-content: center;
-            align-items: center;
+        .shake {
+            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+            transform: translate3d(0, 0, 0);
+            backface-visibility: hidden;
+            perspective: 1000px;
         }
-
-        .timer-display {
-            color: var(--primary-blue);
-            font-weight: 600;
-            font-size: 1.1rem;
-        }
-
-        .game-board {
-            display: grid;
-            gap: 0.5rem;
-            margin-bottom: 2rem;
-            grid-template-rows: repeat(6, 1fr);
-        }
-
-        .game-board.five-letters {
-            grid-template-columns: repeat(5, 1fr);
-            width: min(350px, 90vw);
-        }
-
-        .game-board.six-letters {
-            grid-template-columns: repeat(6, 1fr);
-            width: min(420px, 90vw);
-        }
-
-        .letter-tile {
-            aspect-ratio: 1;
-            border: 2px solid var(--light-blue);
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.5rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            background: var(--white);
-            transition: all 0.3s ease;
-            color: var(--primary-blue);
-            min-height: 60px;
-        }
-
-        .letter-tile.filled {
-            border-color: var(--primary-blue);
-            transform: scale(1.02);
-        }
-
-        .letter-tile.correct {
-            background: var(--success);
-            color: var(--white);
-            border-color: var(--success);
-        }
-
-        .letter-tile.present {
-            background: var(--accent-orange);
-            color: var(--white);
-            border-color: var(--accent-orange);
-        }
-
-        .letter-tile.absent {
-            background: #64748b;
-            color: var(--white);
-            border-color: #64748b;
-        }
-
-        .keyboard {
-            width: 100%;
-            max-width: 500px;
-        }
-
-        .keyboard-row {
-            display: flex;
-            justify-content: center;
-            gap: 0.25rem;
-            margin-bottom: 0.5rem;
-        }
-
-        .key {
-            padding: 1rem 0.5rem;
-            border: none;
-            border-radius: 6px;
-            background: var(--light-blue);
-            color: var(--white);
-            font-weight: 600;
-            cursor: pointer;
-            font-size: 0.9rem;
-            min-width: 40px;
-            transition: all 0.2s ease;
-            text-transform: uppercase;
-            user-select: none;
-        }
-
-        .key:hover {
-            background: var(--primary-blue);
-            transform: translateY(-2px);
-        }
-
-        .key.wide {
-            min-width: 80px;
-            font-size: 0.8rem;
-        }
-
-        .key.correct {
-            background: var(--success);
-        }
-
-        .key.present {
-            background: var(--accent-orange);
-        }
-
-        .key.absent {
-            background: #64748b;
-            opacity: 0.6;
-        }
-
-        .new-game-btn {
-            background: var(--accent-orange);
-            color: var(--white);
-            border: none;
-            padding: 1rem 2rem;
-            border-radius: 12px;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            margin: 0.5rem;
-            transition: all 0.2s ease;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            white-space: nowrap;
-        }
-
-        .new-game-btn:hover {
-            background: #d18a2f;
-            transform: translateY(-2px);
-            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
-        }
-
-        .game-over-modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            display: none;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-            padding: 1rem;
-        }
-
-        .modal-content {
-            background: var(--white);
-            border-radius: 16px;
-            padding: 2rem;
-            max-width: 400px;
-            width: 100%;
-            text-align: center;
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-        }
-
-        .modal-title {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--primary-blue);
-            margin-bottom: 1rem;
-        }
-
-        .receipt {
-            background: #f8fafc;
-            border-radius: 12px;
-            padding: 1.5rem;
-            margin: 1rem 0;
-            border-left: 4px solid var(--accent-orange);
-        }
-
-        .receipt-line {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 0.5rem;
-            font-weight: 500;
-        }
-
-        .receipt-line:last-child {
-            margin-bottom: 0;
-            font-weight: 700;
-            color: var(--primary-blue);
-            border-top: 1px solid #e2e8f0;
-            padding-top: 0.5rem;
-        }
-
-        .share-buttons {
-            display: flex;
-            gap: 0.5rem;
-            flex-wrap: wrap;
-            justify-content: center;
-            margin-top: 1rem;
-        }
-
-        .share-btn {
-            background: var(--primary-blue);
-            color: var(--white);
-            border: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 8px;
-            font-size: 0.9rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .share-btn:hover {
-            background: #3a4751;
-        }
-
-        .leaderboard {
-            margin-top: 1rem;
-            max-height: 300px;
-            overflow-y: auto;
-        }
-
-        .leaderboard-header {
-            font-weight: 700;
-            color: var(--primary-blue);
-            margin-bottom: 1rem;
-            text-align: center;
-        }
-
-        .leaderboard-entry {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0.75rem;
-            margin-bottom: 0.5rem;
-            background: #f8fafc;
-            border-radius: 8px;
-            border-left: 3px solid var(--accent-orange);
-        }
-
-        .leaderboard-entry.current-user {
-            background: #eff6ff;
-            border-left-color: var(--primary-blue);
-        }
-
-        .leaderboard-rank {
-            font-weight: 700;
-            color: var(--accent-orange);
-            min-width: 30px;
-        }
-
-        .leaderboard-name {
-            flex: 1;
-            margin-left: 1rem;
-            font-weight: 500;
-        }
-
-        .leaderboard-stats {
-            font-size: 0.9rem;
-            color: var(--light-blue);
-            text-align: right;
-        }
-
-        .submit-score-form {
-            margin: 1rem 0;
-            padding: 1rem;
-            background: #f8fafc;
-            border-radius: 12px;
-        }
-
-        .name-input {
-            width: 100%;
-            padding: 0.75rem;
-            border: 2px solid var(--light-blue);
-            border-radius: 8px;
-            font-size: 1rem;
-            margin-bottom: 1rem;
-            outline: none;
-            transition: border-color 0.2s ease;
-        }
-
-        .name-input:focus {
-            border-color: var(--accent-orange);
-        }
-
-        .loading {
-            opacity: 0.6;
-            pointer-events: none;
-        }
-
-        .message {
-            text-align: center;
-            margin: 1rem 0;
-            padding: 1rem;
-            border-radius: 8px;
-            font-weight: 500;
-        }
-
-        .message.success {
-            background: #dcfce7;
-            color: #166534;
-            border: 1px solid #bbf7d0;
-        }
-
-        .message.error {
-            background: #fef2f2;
-            color: #dc2626;
-            border: 1px solid #fecaca;
-        }
-
-        .message.info {
-            background: #eff6ff;
-            color: #1d4ed8;
-            border: 1px solid #bfdbfe;
-        }
-
-        #shareCanvas {
-            display: none;
-        }
-
-        @media (max-width: 480px) {
-            .title {
-                font-size: 2rem;
-            }
-            
-            .letter-tile {
-                font-size: 1.25rem;
-                min-height: 50px;
-            }
-            
-            .key {
-                padding: 0.75rem 0.375rem;
-                font-size: 0.8rem;
-                min-width: 32px;
-            }
-            
-            .modal-content {
-                padding: 1.5rem;
-            }
-
-            .share-buttons {
-                flex-direction: column;
-            }
-
-            .game-controls {
-                flex-direction: column;
-                gap: 1rem;
-            }
-
-            .share-btn {
-                padding: 0.75rem 1.5rem;
-                font-size: 0.9rem;
-            }
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+            40%, 60% { transform: translate3d(4px, 0, 0); }
         }
     </style>
 </head>
-<body>
-    <div class="header">
-        <h1 class="title" id="mainTitle">Daily Challenge #1</h1>
-        <p class="subtitle" id="challengeSubtitle">Today's Challenge: 5 Letters</p>
+<body class="bg-slate-50 flex flex-col items-center justify-center min-h-screen p-4 text-slate-800">
+    <!-- Header Section -->
+    <header class="text-center mb-8 w-full max-w-lg">
+        <h1 id="mainTitle" class="4xl md:text-5xl font-extrabold text-slate-800 tracking-tight mb-2">Daily Challenge #1</h1>
+        <p id="challengeSubtitle" class="text-slate-500 text-sm font-medium">Today's Challenge: 5 Letters</p>
+    </header>
+
+    <div class="flex flex-col md:flex-row items-center justify-center gap-4 mb-8 w-full max-w-lg">
+        <!-- Timer -->
+        <div id="timer" class="text-xl font-bold text-slate-700 bg-white shadow-md rounded-full px-6 py-2 transition-all duration-300">00:00</div>
+        <!-- Leaderboard Button -->
+        <button id="leaderboardBtn" onclick="openLeaderboardModal()" class="hidden md:flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-full font-semibold shadow-lg hover:bg-amber-600 transition-all duration-300 transform hover:scale-105">
+            <span class="text-lg">🏆</span> View Leaderboard
+        </button>
     </div>
 
-    <div class="game-controls">
-        <div class="timer-display" id="timer">00:00</div>
-        <button class="share-btn" id="leaderboardBtn" onclick="openLeaderboardModal()" style="display: none;">🏆 View Leaderboard</button>
-    </div>
+    <!-- Message Display -->
+    <div id="message" class="hidden text-center mb-4 p-3 rounded-lg w-full max-w-lg"></div>
 
-    <div id="message" class="message" style="display: none;"></div>
+    <!-- Game Board Container -->
+    <div id="gameBoard" class="grid gap-2 mb-8 w-full max-w-sm"></div>
 
-    <div class="game-board five-letters" id="gameBoard"></div>
-
-    <div class="keyboard" id="keyboard">
-        <div class="keyboard-row">
-            <button class="key" data-key="Q">Q</button>
-            <button class="key" data-key="W">W</button>
-            <button class="key" data-key="E">E</button>
-            <button class="key" data-key="R">R</button>
-            <button class="key" data-key="T">T</button>
-            <button class="key" data-key="Y">Y</button>
-            <button class="key" data-key="U">U</button>
-            <button class="key" data-key="I">I</button>
-            <button class="key" data-key="O">O</button>
-            <button class="key" data-key="P">P</button>
+    <!-- Keyboard -->
+    <div id="keyboard" class="w-full max-w-lg">
+        <div class="flex justify-center gap-1 mb-1">
+            <button class="key w-8 md:w-10 h-12 bg-slate-300 text-slate-800 font-bold rounded-lg transition-all duration-200 hover:bg-slate-400" data-key="Q">Q</button>
+            <button class="key w-8 md:w-10 h-12 bg-slate-300 text-slate-800 font-bold rounded-lg transition-all duration-200 hover:bg-slate-400" data-key="W">W</button>
+            <button class="key w-8 md:w-10 h-12 bg-slate-300 text-slate-800 font-bold rounded-lg transition-all duration-200 hover:bg-slate-400" data-key="E">E</button>
+            <button class="key w-8 md:w-10 h-12 bg-slate-300 text-slate-800 font-bold rounded-lg transition-all duration-200 hover:bg-slate-400" data-key="R">R</button>
+            <button class="key w-8 md:w-10 h-12 bg-slate-300 text-slate-800 font-bold rounded-lg transition-all duration-200 hover:bg-slate-400" data-key="T">T</button>
+            <button class="key w-8 md:w-10 h-12 bg-slate-300 text-slate-800 font-bold rounded-lg transition-all duration-200 hover:bg-slate-400" data-key="Y">Y</button>
+            <button class="key w-8 md:w-10 h-12 bg-slate-300 text-slate-800 font-bold rounded-lg transition-all duration-200 hover:bg-slate-400" data-key="U">U</button>
+            <button class="key w-8 md:w-10 h-12 bg-slate-300 text-slate-800 font-bold rounded-lg transition-all duration-200 hover:bg-slate-400" data-key="I">I</button>
+            <button class="key w-8 md:w-10 h-12 bg-slate-300 text-slate-800 font-bold rounded-lg transition-all duration-200 hover:bg-slate-400" data-key="O">O</button>
+            <button class="key w-8 md:w-10 h-12 bg-slate-300 text-slate-800 font-bold rounded-lg transition-all duration-200 hover:bg-slate-400" data-key="P">P</button>
         </div>
-        <div class="keyboard-row">
-            <button class="key" data-key="A">A</button>
-            <button class="key" data-key="S">S</button>
-            <button class="key" data-key="D">D</button>
-            <button class="key" data-key="F">F</button>
-            <button class="key" data-key="G">G</button>
-            <button class="key" data-key="H">H</button>
-            <button class="key" data-key="J">J</button>
-            <button class="key" data-key="K">K</button>
-            <button class="key" data-key="L">L</button>
+        <div class="flex justify-center gap-1 mb-1">
+            <button class="key w-8 md:w-10 h-12 bg-slate-300 text-slate-800 font-bold rounded-lg transition-all duration-200 hover:bg-slate-400" data-key="A">A</button>
+            <button class="key w-8 md:w-10 h-12 bg-slate-300 text-slate-800 font-bold rounded-lg transition-all duration-200 hover:bg-slate-400" data-key="S">S</button>
+            <button class="key w-8 md:w-10 h-12 bg-slate-300 text-slate-800 font-bold rounded-lg transition-all duration-200 hover:bg-slate-400" data-key="D">D</button>
+            <button class="key w-8 md:w-10 h-12 bg-slate-300 text-slate-800 font-bold rounded-lg transition-all duration-200 hover:bg-slate-400" data-key="F">F</button>
+            <button class="key w-8 md:w-10 h-12 bg-slate-300 text-slate-800 font-bold rounded-lg transition-all duration-200 hover:bg-slate-400" data-key="G">G</button>
+            <button class="key w-8 md:w-10 h-12 bg-slate-300 text-slate-800 font-bold rounded-lg transition-all duration-200 hover:bg-slate-400" data-key="H">H</button>
+            <button class="key w-8 md:w-10 h-12 bg-slate-300 text-slate-800 font-bold rounded-lg transition-all duration-200 hover:bg-slate-400" data-key="J">J</button>
+            <button class="key w-8 md:w-10 h-12 bg-slate-300 text-slate-800 font-bold rounded-lg transition-all duration-200 hover:bg-slate-400" data-key="K">K</button>
+            <button class="key w-8 md:w-10 h-12 bg-slate-300 text-slate-800 font-bold rounded-lg transition-all duration-200 hover:bg-slate-400" data-key="L">L</button>
         </div>
-        <div class="keyboard-row">
-            <button class="key wide" data-key="ENTER">ENTER</button>
-            <button class="key" data-key="Z">Z</button>
-            <button class="key" data-key="X">X</button>
-            <button class="key" data-key="C">C</button>
-            <button class="key" data-key="V">V</button>
-            <button class="key" data-key="B">B</button>
-            <button class="key" data-key="N">N</button>
-            <button class="key" data-key="M">M</button>
-            <button class="key wide" data-key="BACKSPACE">⌫</button>
+        <div class="flex justify-center gap-1">
+            <button class="key w-16 md:w-20 h-12 bg-slate-400 text-white font-bold rounded-lg text-sm transition-all duration-200 hover:bg-slate-500" data-key="ENTER">ENTER</button>
+            <button class="key w-8 md:w-10 h-12 bg-slate-300 text-slate-800 font-bold rounded-lg transition-all duration-200 hover:bg-slate-400" data-key="Z">Z</button>
+            <button class="key w-8 md:w-10 h-12 bg-slate-300 text-slate-800 font-bold rounded-lg transition-all duration-200 hover:bg-slate-400" data-key="X">X</button>
+            <button class="key w-8 md:w-10 h-12 bg-slate-300 text-slate-800 font-bold rounded-lg transition-all duration-200 hover:bg-slate-400" data-key="C">C</button>
+            <button class="key w-8 md:w-10 h-12 bg-slate-300 text-slate-800 font-bold rounded-lg transition-all duration-200 hover:bg-slate-400" data-key="V">V</button>
+            <button class="key w-8 md:w-10 h-12 bg-slate-300 text-slate-800 font-bold rounded-lg transition-all duration-200 hover:bg-slate-400" data-key="B">B</button>
+            <button class="key w-8 md:w-10 h-12 bg-slate-300 text-slate-800 font-bold rounded-lg transition-all duration-200 hover:bg-slate-400" data-key="N">N</button>
+            <button class="key w-8 md:w-10 h-12 bg-slate-300 text-slate-800 font-bold rounded-lg transition-all duration-200 hover:bg-slate-400" data-key="M">M</button>
+            <button class="key w-16 md:w-20 h-12 bg-slate-400 text-white font-bold rounded-lg text-sm transition-all duration-200 hover:bg-slate-500" data-key="BACKSPACE">⌫</button>
         </div>
     </div>
 
-    <div class="game-over-modal" id="gameOverModal">
-        <div class="modal-content">
-            <h2 class="modal-title" id="modalTitle">Game Over!</h2>
-            <div class="receipt" id="receipt"></div>
+    <!-- Game Over Modal -->
+    <div id="gameOverModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden z-50">
+        <div class="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-sm transform transition-all duration-300 scale-95 opacity-0">
+            <h2 id="modalTitle" class="text-2xl font-bold text-center mb-4 text-slate-800"></h2>
+            <div id="receipt" class="bg-slate-50 p-4 rounded-xl text-sm mb-4 border-l-4 border-amber-500"></div>
             
-            <div class="submit-score-form" id="submitScoreForm">
-                <input type="text" class="name-input" id="playerNameInput" placeholder="Enter your name for leaderboard" maxlength="20">
-                <button class="new-game-btn" onclick="submitScore()" id="submitBtn">Submit Score</button>
-            </div>
+            <form id="submitScoreForm" class="flex flex-col gap-2 mb-4 hidden">
+                <input type="text" id="playerNameInput" class="w-full p-2 border border-slate-300 rounded-lg text-center font-medium focus:outline-none focus:border-amber-500" placeholder="Enter your name" maxlength="20">
+                <button type="button" id="submitBtn" onclick="submitScore()" class="w-full px-4 py-2 bg-amber-500 text-white rounded-lg font-semibold transition-all duration-300 hover:bg-amber-600">Submit Score</button>
+            </form>
             
-            <div class="leaderboard" id="leaderboardContainer" style="display: none;">
-                <div class="leaderboard-header">🏆 Today's Leaderboard</div>
-                <div id="leaderboardList"></div>
+            <div id="leaderboardContainer" class="hidden fade-in">
+                <h3 class="text-lg font-bold text-center mb-2 text-slate-800">🏆 Today's Leaderboard</h3>
+                <div id="leaderboardList" class="max-h-60 overflow-y-auto mb-4 p-2 bg-slate-50 rounded-xl"></div>
             </div>
-            
-            <div class="share-buttons">
-                <button class="share-btn" onclick="showLeaderboard()" id="viewLeaderboardBtn">🏆 View Leaderboard</button>
-                <button class="share-btn close-btn" onclick="closeModal()">✕ Close</button>
+
+            <div class="flex flex-col sm:flex-row gap-2 justify-center">
+                <button id="viewLeaderboardBtn" onclick="toggleLeaderboardView()" class="flex-1 px-4 py-2 bg-slate-800 text-white rounded-lg font-semibold transition-all duration-300 hover:bg-slate-700">🏆 View Leaderboard</button>
+                <button onclick="closeModal()" class="flex-1 px-4 py-2 bg-slate-200 text-slate-800 rounded-lg font-semibold transition-all duration-300 hover:bg-slate-300">✕ Close</button>
             </div>
         </div>
     </div>
-
-    <div class="game-over-modal" id="leaderboardModal">
-        <div class="modal-content">
-            <h2 class="modal-title">🏆 Today's Leaderboard</h2>
-            <div class="leaderboard">
-                <div id="standAloneLeaderboardList"></div>
-            </div>
-            <div class="share-buttons">
-                <button class="share-btn close-btn" onclick="closeLeaderboardModal()">✕ Close</button>
+    
+    <!-- Standalone Leaderboard Modal -->
+    <div id="leaderboardModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden z-50">
+        <div class="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-md transform transition-all duration-300 scale-95 opacity-0">
+            <h2 class="text-2xl font-bold text-center mb-4 text-slate-800">🏆 Today's Leaderboard</h2>
+            <div id="standAloneLeaderboardList" class="max-h-96 overflow-y-auto mb-4 p-2 bg-slate-50 rounded-xl"></div>
+            <div class="flex flex-col sm:flex-row gap-2 justify-center">
+                <button onclick="closeLeaderboardModal()" class="flex-1 px-4 py-2 bg-slate-800 text-white rounded-lg font-semibold transition-all duration-300 hover:bg-slate-700">✕ Close</button>
             </div>
         </div>
     </div>
@@ -553,8 +191,9 @@
             }
         };
 
+        // --- Game State Variables ---
         const WORDS_5 = ['BONES', 'SPINE', 'BREAK', 'RISKS', 'BUILD'];
-        const WORDS_6 = ['STRONG', 'GROWTH'];
+        const WORDS_6 = ['STRONG', 'GROWTH', 'HEALTH', 'CLINIC', 'TRIAL', 'CANCER'];
         
         let currentWord = '';
         let currentGuess = '';
@@ -564,26 +203,26 @@
         let startTime = null;
         let timerInterval = null;
         let guessCount = 0;
-        let gameResult = [];
         let dailyNumber = 1;
 
+        /**
+         * Sets the daily challenge word based on the current date.
+         */
         function getDailyChallenge() {
-            // Get today's date as seed
+            // Get today's date as seed for consistent daily randomization
             const today = new Date();
-            const startDate = new Date('2025-01-01'); // Start date for daily challenges
+            const startDate = new Date('2025-01-01');
             const daysSinceStart = Math.floor((today - startDate) / (1000 * 60 * 60 * 24));
             
             dailyNumber = daysSinceStart + 1;
             
-            // Use date as seed for consistent daily randomization
             const seed = today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate();
             const random = Math.sin(seed) * 10000;
             const randomValue = random - Math.floor(random);
             
-            // Determine word length (roughly 70% 5-letter, 30% 6-letter)
+            // Determine word length
             wordLength = randomValue < 0.7 ? 5 : 6;
             
-            // Select word based on seeded random
             const words = wordLength === 5 ? WORDS_5 : WORDS_6;
             const wordIndex = Math.floor(randomValue * words.length);
             currentWord = words[wordIndex];
@@ -593,60 +232,18 @@
             document.getElementById('challengeSubtitle').textContent = 
                 `Today's Challenge: ${wordLength} Letters`;
             
-            console.log('Daily word:', currentWord); // For debugging
+            console.log('Daily word:', currentWord);
         }
 
+        /**
+         * Initializes the game state and UI components.
+         */
         function initGame() {
             getDailyChallenge();
-            setupBoard();
-            setupKeyboard();
-            startGame();
-        }
-
-        function setupBoard() {
-            const board = document.getElementById('gameBoard');
-            board.innerHTML = '';
-            board.className = `game-board ${wordLength === 5 ? 'five-letters' : 'six-letters'}`;
-            
-            for (let row = 0; row < 6; row++) {
-                for (let col = 0; col < wordLength; col++) {
-                    const tile = document.createElement('div');
-                    tile.className = 'letter-tile';
-                    tile.setAttribute('data-row', row);
-                    tile.setAttribute('data-col', col);
-                    board.appendChild(tile);
-                }
-            }
-        }
-
-        function setupKeyboard() {
-            const keys = document.querySelectorAll('.key');
-            keys.forEach(key => {
-                // Remove existing event listeners by cloning
-                const newKey = key.cloneNode(true);
-                key.parentNode.replaceChild(newKey, key);
-            });
-            
-            // Re-select keys after cloning and add event listeners
-            document.querySelectorAll('.key').forEach(key => {
-                key.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    handleKeyPress(key.dataset.key);
-                });
-                
-                // Reset key colors
-                key.className = key.dataset.key === 'ENTER' || key.dataset.key === 'BACKSPACE' ? 'key wide' : 'key';
-            });
-        }
-
-        function startGame() {
-            getDailyChallenge(); // Get today's challenge
             currentGuess = '';
             currentRow = 0;
             gameOver = false;
             guessCount = 0;
-            gameResult = [];
             startTime = Date.now();
             
             setupBoard();
@@ -655,6 +252,56 @@
             hideMessage();
         }
 
+        /**
+         * Creates the game board tiles dynamically.
+         */
+        function setupBoard() {
+            const board = document.getElementById('gameBoard');
+            board.innerHTML = '';
+            board.className = `grid gap-2 mb-8 mx-auto w-full max-w-sm`;
+            board.style.gridTemplateColumns = `repeat(${wordLength}, minmax(0, 1fr))`;
+            
+            for (let row = 0; row < 6; row++) {
+                for (let col = 0; col < wordLength; col++) {
+                    const tile = document.createElement('div');
+                    tile.className = 'flex items-center justify-center aspect-square border-2 border-slate-300 rounded-lg text-2xl font-extrabold uppercase transition-all duration-300';
+                    tile.setAttribute('data-row', row);
+                    tile.setAttribute('data-col', col);
+                    board.appendChild(tile);
+                }
+            }
+        }
+
+        /**
+         * Resets the keyboard and adds event listeners.
+         */
+        function setupKeyboard() {
+            const keys = document.querySelectorAll('.key');
+            keys.forEach(key => {
+                // Clone and replace to remove old event listeners
+                const newKey = key.cloneNode(true);
+                key.parentNode.replaceChild(newKey, key);
+            });
+            
+            document.querySelectorAll('.key').forEach(key => {
+                key.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleKeyPress(key.dataset.key);
+                });
+                
+                // Reset key colors
+                if (key.dataset.key === 'ENTER' || key.dataset.key === 'BACKSPACE') {
+                    key.className = 'key w-16 md:w-20 h-12 bg-slate-400 text-white font-bold rounded-lg text-sm transition-all duration-200 hover:bg-slate-500';
+                } else {
+                    key.className = 'key w-8 md:w-10 h-12 bg-slate-300 text-slate-800 font-bold rounded-lg transition-all duration-200 hover:bg-slate-400';
+                }
+            });
+        }
+
+        /**
+         * Starts the game timer.
+         */
         function startTimer() {
             if (timerInterval) clearInterval(timerInterval);
             
@@ -669,6 +316,10 @@
             }, 1000);
         }
 
+        /**
+         * Handles keyboard input from both physical and on-screen keyboards.
+         * @param {string} key - The key pressed.
+         */
         function handleKeyPress(key) {
             if (gameOver) return;
 
@@ -676,7 +327,13 @@
                 if (currentGuess.length === wordLength) {
                     submitGuess();
                 } else {
-                    showMessage('Not enough letters!', 'error');
+                    showMessage('Not enough letters!', 'bg-red-100 text-red-700 border border-red-200');
+                    // Add a shake effect to the current row
+                    const currentRowTiles = document.querySelectorAll(`[data-row="${currentRow}"]`);
+                    currentRowTiles.forEach(tile => tile.classList.add('shake'));
+                    setTimeout(() => {
+                        currentRowTiles.forEach(tile => tile.classList.remove('shake'));
+                    }, 500);
                 }
             } else if (key === 'BACKSPACE') {
                 if (currentGuess.length > 0) {
@@ -689,52 +346,73 @@
             }
         }
 
+        /**
+         * Updates the game board with the current guess.
+         */
         function updateBoard() {
             for (let i = 0; i < wordLength; i++) {
                 const tile = document.querySelector(`[data-row="${currentRow}"][data-col="${i}"]`);
                 if (i < currentGuess.length) {
                     tile.textContent = currentGuess[i];
-                    tile.classList.add('filled');
+                    tile.classList.add('bg-white', 'border-slate-500', 'shadow-md');
                 } else {
                     tile.textContent = '';
-                    tile.classList.remove('filled');
+                    tile.classList.remove('bg-white', 'border-slate-500', 'shadow-md');
                 }
             }
         }
 
+        /**
+         * Submits the current guess and checks for a win/loss condition.
+         */
         function submitGuess() {
             guessCount++;
             const guess = currentGuess;
             const result = checkGuess(guess);
             
-            // Store result for sharing
-            gameResult.push({ guess, result: [...result] });
-            
-            // Update board with results
+            // Animate tiles and update their colors
             for (let i = 0; i < wordLength; i++) {
                 const tile = document.querySelector(`[data-row="${currentRow}"][data-col="${i}"]`);
-                tile.classList.add(result[i]);
+                setTimeout(() => {
+                    tile.classList.add('flip');
+                    tile.classList.remove('bg-white', 'border-slate-500', 'shadow-md');
+                    
+                    if (result[i] === 'correct') {
+                        tile.classList.add('bg-green-500', 'border-green-500', 'text-white');
+                    } else if (result[i] === 'present') {
+                        tile.classList.add('bg-amber-500', 'border-amber-500', 'text-white');
+                    } else { // absent
+                        tile.classList.add('bg-slate-500', 'border-slate-500', 'text-white');
+                    }
+                }, i * 300);
             }
             
-            // Update keyboard
-            updateKeyboard(guess, result);
+            // Update keyboard colors after tiles have been processed
+            setTimeout(() => {
+                updateKeyboard(guess, result);
+            }, wordLength * 300);
             
             if (guess === currentWord) {
                 gameOver = true;
                 clearInterval(timerInterval);
-                document.getElementById('leaderboardBtn').style.display = 'inline-block';
-                setTimeout(() => showGameOverModal(true), 500);
+                document.getElementById('leaderboardBtn').classList.remove('hidden');
+                setTimeout(() => showGameOverModal(true), wordLength * 300 + 500);
             } else if (currentRow === 5) {
                 gameOver = true;
                 clearInterval(timerInterval);
-                document.getElementById('leaderboardBtn').style.display = 'inline-block';
-                setTimeout(() => showGameOverModal(false), 500);
+                document.getElementById('leaderboardBtn').classList.remove('hidden');
+                setTimeout(() => showGameOverModal(false), wordLength * 300 + 500);
             } else {
                 currentRow++;
                 currentGuess = '';
             }
         }
 
+        /**
+         * Compares the guess to the word and returns an array of result types.
+         * @param {string} guess - The user's guess.
+         * @returns {string[]} An array of 'correct', 'present', or 'absent'.
+         */
         function checkGuess(guess) {
             const result = new Array(wordLength).fill('absent');
             const wordArray = currentWord.split('');
@@ -763,70 +441,109 @@
             return result;
         }
 
+        /**
+         * Updates the keyboard key colors based on the guess result.
+         * @param {string} guess - The guess string.
+         * @param {string[]} result - The result array.
+         */
         function updateKeyboard(guess, result) {
             for (let i = 0; i < guess.length; i++) {
                 const key = document.querySelector(`[data-key="${guess[i]}"]`);
                 if (!key) continue;
                 
-                const currentClass = key.className;
+                const currentClassList = key.classList;
                 
-                if (result[i] === 'correct' || (result[i] === 'present' && !currentClass.includes('correct'))) {
-                    key.classList.remove('absent', 'present', 'correct');
-                    key.classList.add(result[i]);
-                } else if (result[i] === 'absent' && !currentClass.includes('correct') && !currentClass.includes('present')) {
-                    key.classList.add('absent');
+                // Prioritize 'correct' > 'present' > 'absent'
+                if (result[i] === 'correct') {
+                    currentClassList.remove('bg-slate-300', 'hover:bg-slate-400', 'bg-amber-500', 'text-white');
+                    currentClassList.add('bg-green-500', 'text-white');
+                } else if (result[i] === 'present' && !currentClassList.contains('bg-green-500')) {
+                    currentClassList.remove('bg-slate-300', 'hover:bg-slate-400');
+                    currentClassList.add('bg-amber-500', 'text-white');
+                } else if (result[i] === 'absent' && !currentClassList.contains('bg-green-500') && !currentClassList.contains('bg-amber-500')) {
+                    currentClassList.remove('bg-slate-300', 'hover:bg-slate-400');
+                    currentClassList.add('bg-slate-500', 'text-white');
                 }
             }
         }
-
+        
+        /**
+         * Shows the game over modal with results.
+         * @param {boolean} won - Whether the player won the game.
+         */
         function showGameOverModal(won) {
             const modal = document.getElementById('gameOverModal');
+            const modalContent = modal.querySelector('div');
             const title = document.getElementById('modalTitle');
             const receipt = document.getElementById('receipt');
             const submitScoreForm = document.getElementById('submitScoreForm');
-            
             const elapsedTime = Date.now() - startTime;
-            const minutes = Math.floor(elapsedTime / 60000);
-            const seconds = Math.floor((elapsedTime % 60000) / 1000);
+            const timeSeconds = Math.floor(elapsedTime / 1000);
+            const minutes = Math.floor(timeSeconds / 60);
+            const seconds = timeSeconds % 60;
             const timeString = `${minutes}:${seconds.toString().padStart(2, '0')}`;
             
             title.textContent = won ? '🎉 Congratulations!' : '😔 Game Over';
             
             receipt.innerHTML = `
-                <div class="receipt-line"><span>Daily #:</span><span>${dailyNumber}</span></div>
-                <div class="receipt-line"><span>Word:</span><span>${currentWord}</span></div>
-                <div class="receipt-line"><span>Guesses:</span><span>${guessCount}/6</span></div>
-                <div class="receipt-line"><span>Time:</span><span>${timeString}</span></div>
-                <div class="receipt-line"><span>Result:</span><span>${won ? 'Victory!' : 'Better luck tomorrow!'}</span></div>
+                <div class="flex justify-between mb-1"><span>Daily #:</span><span>${dailyNumber}</span></div>
+                <div class="flex justify-between mb-1"><span>Word:</span><span>${currentWord}</span></div>
+                <div class="flex justify-between mb-1"><span>Guesses:</span><span>${guessCount}/6</span></div>
+                <div class="flex justify-between mb-1"><span>Time:</span><span>${timeString}</span></div>
+                <div class="flex justify-between font-bold text-slate-800 border-t border-slate-200 pt-2 mt-2"><span>Result:</span><span>${won ? 'Victory!' : 'Better luck tomorrow!'}</span></div>
             `;
             
-            // Only show score submission form if player won
             if (won) {
-                submitScoreForm.style.display = 'block';
-                document.getElementById('viewLeaderboardBtn').textContent = '🏆 View Leaderboard';
+                submitScoreForm.classList.remove('hidden');
             } else {
-                submitScoreForm.style.display = 'none';
-                document.getElementById('viewLeaderboardBtn').textContent = '🏆 View Leaderboard';
+                submitScoreForm.classList.add('hidden');
             }
             
             modal.style.display = 'flex';
+            setTimeout(() => {
+                modalContent.classList.remove('scale-95', 'opacity-0');
+                modalContent.classList.add('scale-100', 'opacity-100');
+            }, 10);
+        }
+        
+        /**
+         * Toggles between showing the score submission form and the leaderboard.
+         */
+        async function toggleLeaderboardView() {
+            const submitForm = document.getElementById('submitScoreForm');
+            const leaderboardContainer = document.getElementById('leaderboardContainer');
+            const btn = document.getElementById('viewLeaderboardBtn');
+
+            if (leaderboardContainer.classList.contains('hidden')) {
+                submitForm.classList.add('hidden');
+                leaderboardContainer.classList.remove('hidden');
+                btn.textContent = 'Hide Leaderboard';
+                await showLeaderboard();
+            } else {
+                submitForm.classList.remove('hidden');
+                leaderboardContainer.classList.add('hidden');
+                btn.textContent = '🏆 View Leaderboard';
+            }
         }
 
+        /**
+         * Submits the player's score to Supabase.
+         */
         async function submitScore() {
             const playerNameInput = document.getElementById('playerNameInput');
             const submitBtn = document.getElementById('submitBtn');
             const playerName = playerNameInput.value.trim();
             
             if (!playerName) {
-                showMessage('Please enter your name!', 'error');
+                showMessage('Please enter your name!', 'bg-red-100 text-red-700 border border-red-200');
                 return;
             }
             
             submitBtn.textContent = 'Submitting...';
-            submitBtn.classList.add('loading');
+            submitBtn.disabled = true;
             
             const timeSeconds = Math.floor((Date.now() - startTime) / 1000);
-            const won = gameResult.some(row => row.guess === currentWord);
+            const won = currentGuess === currentWord;
             
             const success = await supabase.insertScore(
                 playerName, 
@@ -838,28 +555,31 @@
             );
             
             if (success) {
-                showMessage('Score submitted successfully!', 'success');
-                document.getElementById('submitScoreForm').style.display = 'none';
-                document.getElementById('viewLeaderboardBtn').style.display = 'inline-block';
+                showMessage('Score submitted successfully!', 'bg-green-100 text-green-700 border border-green-200');
+                document.getElementById('submitScoreForm').classList.add('hidden');
                 await showLeaderboard(playerName);
+                document.getElementById('leaderboardContainer').classList.remove('hidden');
+                document.getElementById('viewLeaderboardBtn').textContent = 'Hide Leaderboard';
+                
             } else {
-                showMessage('Failed to submit score. Please try again.', 'error');
+                showMessage('Failed to submit score. Please try again.', 'bg-red-100 text-red-700 border border-red-200');
                 submitBtn.textContent = 'Submit Score';
-                submitBtn.classList.remove('loading');
+                submitBtn.disabled = false;
             }
         }
 
+        /**
+         * Fetches and displays the leaderboard.
+         * @param {string} [currentPlayerName=null] - The ID of the current player to highlight.
+         */
         async function showLeaderboard(currentPlayerName = null) {
-            const leaderboardContainer = document.getElementById('leaderboardContainer');
             const leaderboardList = document.getElementById('leaderboardList');
-            
-            leaderboardContainer.style.display = 'block';
-            leaderboardList.innerHTML = '<div style="text-align: center; padding: 1rem;">Loading leaderboard...</div>';
+            leaderboardList.innerHTML = '<div class="text-center p-4 text-slate-500">Loading leaderboard...</div>';
             
             const scores = await supabase.getLeaderboard(dailyNumber);
             
             if (scores.length === 0) {
-                leaderboardList.innerHTML = '<div style="text-align: center; padding: 1rem; color: #6C757D;">No scores yet today. Be the first!</div>';
+                leaderboardList.innerHTML = '<div class="text-center p-4 text-slate-500">No scores yet today. Be the first!</div>';
                 return;
             }
             
@@ -870,10 +590,10 @@
                 const isCurrentUser = currentPlayerName && score.player_name === currentPlayerName;
                 
                 return `
-                    <div class="leaderboard-entry ${isCurrentUser ? 'current-user' : ''}">
-                        <div class="leaderboard-rank">#${index + 1}</div>
-                        <div class="leaderboard-name">${score.player_name}${isCurrentUser ? ' (You)' : ''}</div>
-                        <div class="leaderboard-stats">
+                    <div class="flex justify-between items-center p-3 mb-2 rounded-lg ${isCurrentUser ? 'bg-blue-50 border-l-4 border-blue-500' : 'bg-white border-l-4 border-amber-500'}">
+                        <div class="font-extrabold text-lg ${isCurrentUser ? 'text-blue-500' : 'text-amber-500'} w-8">#${index + 1}</div>
+                        <div class="flex-1 ml-4 font-semibold text-slate-700">${score.player_name}${isCurrentUser ? ' (You)' : ''}</div>
+                        <div class="text-xs text-slate-500 text-right">
                             ${score.guesses}/6 guesses<br>
                             ${timeString}
                         </div>
@@ -881,26 +601,27 @@
                 `;
             }).join('');
         }
-
-        function closeModal() {
-            document.getElementById('gameOverModal').style.display = 'none';
-        }
-
-        function closeLeaderboardModal() {
-            document.getElementById('leaderboardModal').style.display = 'none';
-        }
-
+        
+        /**
+         * Displays the leaderboard in a standalone modal.
+         */
         async function openLeaderboardModal() {
             const modal = document.getElementById('leaderboardModal');
+            const modalContent = modal.querySelector('div');
             const leaderboardList = document.getElementById('standAloneLeaderboardList');
             
             modal.style.display = 'flex';
-            leaderboardList.innerHTML = '<div style="text-align: center; padding: 1rem;">Loading leaderboard...</div>';
+            setTimeout(() => {
+                modalContent.classList.remove('scale-95', 'opacity-0');
+                modalContent.classList.add('scale-100', 'opacity-100');
+            }, 10);
+            
+            leaderboardList.innerHTML = '<div class="text-center p-4 text-slate-500">Loading leaderboard...</div>';
             
             const scores = await supabase.getLeaderboard(dailyNumber);
             
             if (scores.length === 0) {
-                leaderboardList.innerHTML = '<div style="text-align: center; padding: 1rem; color: #6C757D;">No scores yet today. Be the first!</div>';
+                leaderboardList.innerHTML = '<div class="text-center p-4 text-slate-500">No scores yet today. Be the first!</div>';
                 return;
             }
             
@@ -910,10 +631,10 @@
                 const timeString = `${minutes}:${seconds.toString().padStart(2, '0')}`;
                 
                 return `
-                    <div class="leaderboard-entry">
-                        <div class="leaderboard-rank">#${index + 1}</div>
-                        <div class="leaderboard-name">${score.player_name}</div>
-                        <div class="leaderboard-stats">
+                    <div class="flex justify-between items-center p-3 mb-2 bg-white rounded-lg border-l-4 border-amber-500">
+                        <div class="font-extrabold text-lg text-amber-500 w-8">#${index + 1}</div>
+                        <div class="flex-1 ml-4 font-semibold text-slate-700">${score.player_name}</div>
+                        <div class="text-xs text-slate-500 text-right">
                             ${score.guesses}/6 guesses<br>
                             ${timeString}
                         </div>
@@ -922,24 +643,41 @@
             }).join('');
         }
 
-        // Close modal when clicking outside of it
-        document.getElementById('gameOverModal').addEventListener('click', function(e) {
-            if (e.target === this) {
-                closeModal();
-            }
-        });
-
-        // Close leaderboard modal when clicking outside of it
-        document.getElementById('leaderboardModal').addEventListener('click', function(e) {
-            if (e.target === this) {
-                closeLeaderboardModal();
-            }
-        });
-
-        function showMessage(text, type) {
+        /**
+         * Closes the main game over modal.
+         */
+        function closeModal() {
+            const modal = document.getElementById('gameOverModal');
+            const modalContent = modal.querySelector('div');
+            modalContent.classList.remove('scale-100', 'opacity-100');
+            modalContent.classList.add('scale-95', 'opacity-0');
+            setTimeout(() => {
+                modal.style.display = 'none';
+            }, 300);
+        }
+        
+        /**
+         * Closes the standalone leaderboard modal.
+         */
+        function closeLeaderboardModal() {
+            const modal = document.getElementById('leaderboardModal');
+            const modalContent = modal.querySelector('div');
+            modalContent.classList.remove('scale-100', 'opacity-100');
+            modalContent.classList.add('scale-95', 'opacity-0');
+            setTimeout(() => {
+                modal.style.display = 'none';
+            }, 300);
+        }
+        
+        /**
+         * Displays a temporary message to the user.
+         * @param {string} text - The message to display.
+         * @param {string} classes - Tailwind classes for styling the message.
+         */
+        function showMessage(text, classes) {
             const message = document.getElementById('message');
             message.textContent = text;
-            message.className = `message ${type}`;
+            message.className = `p-3 rounded-lg w-full max-w-lg text-center fade-in ${classes}`;
             message.style.display = 'block';
             
             setTimeout(() => {
@@ -947,11 +685,14 @@
             }, 3000);
         }
 
+        /**
+         * Hides the message display.
+         */
         function hideMessage() {
             document.getElementById('message').style.display = 'none';
         }
 
-        // Keyboard event listener
+        // --- Event Listeners ---
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 handleKeyPress('ENTER');
@@ -962,8 +703,8 @@
             }
         });
 
-        // Initialize game when page loads
-        document.addEventListener('DOMContentLoaded', initGame);
+        // Initialize Firebase and the game on window load
+        window.onload = initGame;
     </script>
 </body>
 </html>
