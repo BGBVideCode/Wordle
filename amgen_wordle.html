@@ -131,7 +131,14 @@
     <!-- Standalone Leaderboard Modal -->
     <div id="leaderboardModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden z-50">
         <div class="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-md transform transition-all duration-300 scale-95 opacity-0">
-            <h2 class="text-2xl font-bold text-center mb-4 text-slate-800">🏆 Today's Leaderboard</h2>
+            <h2 id="standAloneLeaderboardTitle" class="text-2xl font-bold text-center mb-4 text-slate-800">🏆 Today's Leaderboard</h2>
+            
+            <div class="flex flex-col sm:flex-row items-center gap-2 mb-4">
+                <label for="leaderboardDate" class="text-sm font-semibold text-slate-700 whitespace-nowrap">View Leaderboard for:</label>
+                <input type="date" id="leaderboardDate" class="w-full p-2 border border-slate-300 rounded-lg text-center font-medium focus:outline-none focus:border-amber-500">
+                <button id="showDateLeaderboardBtn" class="w-full sm:w-auto px-4 py-2 bg-amber-500 text-white rounded-lg font-semibold transition-all duration-300 hover:bg-amber-600">Go</button>
+            </div>
+
             <div id="standAloneLeaderboardList" class="max-h-96 overflow-y-auto mb-4 p-2 bg-slate-50 rounded-xl"></div>
             <div class="flex flex-col sm:flex-row gap-2 justify-center">
                 <button onclick="closeLeaderboardModal()" class="flex-1 px-4 py-2 bg-slate-800 text-white rounded-lg font-semibold transition-all duration-300 hover:bg-slate-700">✕ Close</button>
@@ -206,22 +213,36 @@
         let dailyNumber = 1;
 
         /**
+         * Calculates the daily challenge number from a date using UTC for consistency.
+         * @param {Date} date - The date to calculate the daily number for.
+         * @returns {number} The daily challenge number.
+         */
+        function getDailyNumberFromDate(date) {
+            const startDate = new Date('2025-01-01');
+            // Normalize both dates to UTC to avoid timezone issues.
+            const utcDate = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+            const utcStartDate = new Date(Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), startDate.getUTCDate()));
+            const daysSinceStart = Math.floor((utcDate.getTime() - utcStartDate.getTime()) / (1000 * 60 * 60 * 24));
+            return daysSinceStart + 1;
+        }
+
+        /**
          * Sets the daily challenge word based on the current date.
          */
         function getDailyChallenge() {
-            // Get today's date as seed for consistent daily randomization
             const today = new Date();
-            const startDate = new Date('2025-01-01');
-            const daysSinceStart = Math.floor((today - startDate) / (1000 * 60 * 60 * 24));
+            // Use UTC for daily number calculation
+            dailyNumber = getDailyNumberFromDate(today);
             
-            dailyNumber = daysSinceStart + 1;
+            // Determine word length based on whether the daily number is odd or even
+            // Odd days (1, 3, 5...) get 5-letter words.
+            // Even days (2, 4, 6...) get 6-letter words.
+            wordLength = (dailyNumber % 2 !== 0) ? 5 : 6;
             
-            const seed = today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate();
+            // Use a seeded random value to pick a word from the list
+            const seed = today.getUTCFullYear() * 10000 + (today.getUTCMonth() + 1) * 100 + today.getUTCDate();
             const random = Math.sin(seed) * 10000;
             const randomValue = random - Math.floor(random);
-            
-            // Determine word length
-            wordLength = randomValue < 0.7 ? 5 : 6;
             
             const words = wordLength === 5 ? WORDS_5 : WORDS_6;
             const wordIndex = Math.floor(randomValue * words.length);
@@ -608,20 +629,52 @@
         async function openLeaderboardModal() {
             const modal = document.getElementById('leaderboardModal');
             const modalContent = modal.querySelector('div');
-            const leaderboardList = document.getElementById('standAloneLeaderboardList');
             
+            const today = new Date();
+            // Create a local date string for the input, adjusted for the timezone offset
+            const offset = today.getTimezoneOffset();
+            const localDate = new Date(today.getTime() - (offset * 60 * 1000));
+            const todayString = localDate.toISOString().split('T')[0];
+            
+            const dateInput = document.getElementById('leaderboardDate');
+            dateInput.value = todayString;
+
+            // Set up event listener for the "Go" button
+            document.getElementById('showDateLeaderboardBtn').onclick = () => {
+                const selectedDate = new Date(dateInput.value);
+                // Add the timezone offset to get the correct UTC day
+                selectedDate.setMinutes(selectedDate.getMinutes() + selectedDate.getTimezoneOffset());
+                const selectedDailyNumber = getDailyNumberFromDate(selectedDate);
+                
+                const title = document.getElementById('standAloneLeaderboardTitle');
+                title.textContent = `🏆 Leaderboard for Challenge #${selectedDailyNumber}`;
+                
+                showStandaloneLeaderboard(selectedDailyNumber);
+            };
+
             modal.style.display = 'flex';
             setTimeout(() => {
                 modalContent.classList.remove('scale-95', 'opacity-0');
                 modalContent.classList.add('scale-100', 'opacity-100');
             }, 10);
             
+            // Show today's leaderboard by default
+            document.getElementById('standAloneLeaderboardTitle').textContent = `🏆 Leaderboard for Challenge #${dailyNumber}`;
+            await showStandaloneLeaderboard(dailyNumber);
+        }
+
+        /**
+         * Fetches and displays the leaderboard in the standalone modal.
+         * @param {number} dailyNum - The daily number for the leaderboard to display.
+         */
+        async function showStandaloneLeaderboard(dailyNum) {
+            const leaderboardList = document.getElementById('standAloneLeaderboardList');
             leaderboardList.innerHTML = '<div class="text-center p-4 text-slate-500">Loading leaderboard...</div>';
             
-            const scores = await supabase.getLeaderboard(dailyNumber);
+            const scores = await supabase.getLeaderboard(dailyNum);
             
             if (scores.length === 0) {
-                leaderboardList.innerHTML = '<div class="text-center p-4 text-slate-500">No scores yet today. Be the first!</div>';
+                leaderboardList.innerHTML = '<div class="text-center p-4 text-slate-500">No scores found for this date.</div>';
                 return;
             }
             
