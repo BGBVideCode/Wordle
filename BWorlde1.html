@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Word Game</title>
+    <!-- Use Inter font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* Brand Color Variables for Accessibility */
+        :root {
+            --brand-primary: #005475;      /* Dark blue - excellent contrast on white */
+            --brand-secondary: #55575b;    /* Dark gray - excellent contrast on white */
+            --brand-accent: #b8860b;       /* Darker gold instead of #ffad17 for better contrast */
+            --brand-light: #f1f2f2;        /* Light gray */
+            --brand-success: #198754;      /* Accessible green for correct answers */
+            --brand-warning: #fd7e14;      /* Accessible orange for present letters */
+        }
+
+        .brand-primary { background-color: var(--brand-primary); }
+        .brand-primary-text { color: var(--brand-primary); }
+        .brand-secondary { background-color: var(--brand-secondary); }
+        .brand-secondary-text { color: var(--brand-secondary); }
+        .brand-accent { background-color: var(--brand-accent); }
+        .brand-light { background-color: var(--brand-light); }
+        .brand-success { background-color: var(--brand-success); }
+        .brand-warning { background-color: var(--brand-warning); }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .flip {
+            animation: flipTile 0.6s ease-in-out forwards;
+        }
+
+        @keyframes flipTile {
+            0% { transform: rotateX(0deg); }
+            50% { transform: rotateX(90deg); color: transparent; }
+            100% { transform: rotateX(0deg); }
+        }
+
+        .shake {
+            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+            transform: translate3d(0, 0, 0);
+            backface-visibility: hidden;
+            perspective: 1000px;
+        }
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+            40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
+
+        .bounce {
+            animation: bounce 0.8s ease-in-out;
+        }
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-8px); }
+            60% { transform: translateY(-4px); }
+        }
+
+        /* Custom focus indicators for better accessibility */
+        .key:focus {
+            outline: 3px solid var(--brand-accent);
+            outline-offset: 2px;
+        }
+
+        /* Improved tile contrast */
+        .tile-empty {
+            border: 2px solid var(--brand-light);
+            color: var(--brand-primary);
+        }
+
+        .tile-active {
+            border: 2px solid var(--brand-primary);
+            background-color: white;
+            color: var(--brand-primary);
+            box-shadow: 0 2px 4px rgba(0, 84, 117, 0.1);
+        }
+
+        .tile-correct {
+            background-color: var(--brand-success);
+            border-color: var(--brand-success);
+            color: white;
+        }
+
+        .tile-present {
+            background-color: var(--brand-warning);
+            border-color: var(--brand-warning);
+            color: white;
+        }
+
+        .tile-absent {
+            background-color: var(--brand-secondary);
+            border-color: var(--brand-secondary);
+            color: white;
+        }
+    </style>
+</head>
+<body class="bg-white flex flex-col items-center justify-center min-h-screen p-4">
+    <!-- Header Section -->
+    <header class="text-center mb-8 w-full max-w-lg">
+        <center><img src="BLogo.png" alt="Logo" width="200px"></center>
+        <!--<h1 class="text-4xl md:text-5xl font-extrabold brand-primary-text tracking-tight mb-2">Word Game</h1>-->
+        <p class="brand-secondary-text text-sm font-medium">Guess the 5-letter wordle</p>
+    </header>
+
+    <!-- Timer -->
+    <div id="timer" class="text-xl font-bold text-white brand-primary rounded-full px-6 py-2 mb-6 transition-all duration-300 shadow-md">00:00</div>
+
+    <!-- Message Display -->
+    <div id="message" class="hidden text-center mb-4 p-3 rounded-lg w-full max-w-lg" role="alert" aria-live="polite"></div>
+
+    <!-- Game Board Container -->
+    <div id="gameBoard" class="grid gap-2 mb-8 w-full max-w-sm" role="grid" aria-label="Game board"></div>
+
+    <!-- Keyboard -->
+    <div id="keyboard" class="w-full max-w-lg" role="group" aria-label="Virtual keyboard">
+        <div class="flex justify-center gap-1 mb-1">
+            <button class="key w-8 md:w-10 h-12 brand-light brand-primary-text font-bold rounded-lg transition-all duration-200 hover:bg-gray-300 focus:outline-none" data-key="Q" aria-label="Q">Q</button>
+            <button class="key w-8 md:w-10 h-12 brand-light brand-primary-text font-bold rounded-lg transition-all duration-200 hover:bg-gray-300 focus:outline-none" data-key="W" aria-label="W">W</button>
+            <button class="key w-8 md:w-10 h-12 brand-light brand-primary-text font-bold rounded-lg transition-all duration-200 hover:bg-gray-300 focus:outline-none" data-key="E" aria-label="E">E</button>
+            <button class="key w-8 md:w-10 h-12 brand-light brand-primary-text font-bold rounded-lg transition-all duration-200 hover:bg-gray-300 focus:outline-none" data-key="R" aria-label="R">R</button>
+            <button class="key w-8 md:w-10 h-12 brand-light brand-primary-text font-bold rounded-lg transition-all duration-200 hover:bg-gray-300 focus:outline-none" data-key="T" aria-label="T">T</button>
+            <button class="key w-8 md:w-10 h-12 brand-light brand-primary-text font-bold rounded-lg transition-all duration-200 hover:bg-gray-300 focus:outline-none" data-key="Y" aria-label="Y">Y</button>
+            <button class="key w-8 md:w-10 h-12 brand-light brand-primary-text font-bold rounded-lg transition-all duration-200 hover:bg-gray-300 focus:outline-none" data-key="U" aria-label="U">U</button>
+            <button class="key w-8 md:w-10 h-12 brand-light brand-primary-text font-bold rounded-lg transition-all duration-200 hover:bg-gray-300 focus:outline-none" data-key="I" aria-label="I">I</button>
+            <button class="key w-8 md:w-10 h-12 brand-light brand-primary-text font-bold rounded-lg transition-all duration-200 hover:bg-gray-300 focus:outline-none" data-key="O" aria-label="O">O</button>
+            <button class="key w-8 md:w-10 h-12 brand-light brand-primary-text font-bold rounded-lg transition-all duration-200 hover:bg-gray-300 focus:outline-none" data-key="P" aria-label="P">P</button>
+        </div>
+        <div class="flex justify-center gap-1 mb-1">
+            <button class="key w-8 md:w-10 h-12 brand-light brand-primary-text font-bold rounded-lg transition-all duration-200 hover:bg-gray-300 focus:outline-none" data-key="A" aria-label="A">A</button>
+            <button class="key w-8 md:w-10 h-12 brand-light brand-primary-text font-bold rounded-lg transition-all duration-200 hover:bg-gray-300 focus:outline-none" data-key="S" aria-label="S">S</button>
+            <button class="key w-8 md:w-10 h-12 brand-light brand-primary-text font-bold rounded-lg transition-all duration-200 hover:bg-gray-300 focus:outline-none" data-key="D" aria-label="D">D</button>
+            <button class="key w-8 md:w-10 h-12 brand-light brand-primary-text font-bold rounded-lg transition-all duration-200 hover:bg-gray-300 focus:outline-none" data-key="F" aria-label="F">F</button>
+            <button class="key w-8 md:w-10 h-12 brand-light brand-primary-text font-bold rounded-lg transition-all duration-200 hover:bg-gray-300 focus:outline-none" data-key="G" aria-label="G">G</button>
+            <button class="key w-8 md:w-10 h-12 brand-light brand-primary-text font-bold rounded-lg transition-all duration-200 hover:bg-gray-300 focus:outline-none" data-key="H" aria-label="H">H</button>
+            <button class="key w-8 md:w-10 h-12 brand-light brand-primary-text font-bold rounded-lg transition-all duration-200 hover:bg-gray-300 focus:outline-none" data-key="J" aria-label="J">J</button>
+            <button class="key w-8 md:w-10 h-12 brand-light brand-primary-text font-bold rounded-lg transition-all duration-200 hover:bg-gray-300 focus:outline-none" data-key="K" aria-label="K">K</button>
+            <button class="key w-8 md:w-10 h-12 brand-light brand-primary-text font-bold rounded-lg transition-all duration-200 hover:bg-gray-300 focus:outline-none" data-key="L" aria-label="L">L</button>
+        </div>
+        <div class="flex justify-center gap-1">
+            <button class="key w-16 md:w-20 h-12 brand-primary text-white font-bold rounded-lg text-sm transition-all duration-200 hover:opacity-90 focus:outline-none" data-key="ENTER" aria-label="Enter">ENTER</button>
+            <button class="key w-8 md:w-10 h-12 brand-light brand-primary-text font-bold rounded-lg transition-all duration-200 hover:bg-gray-300 focus:outline-none" data-key="Z" aria-label="Z">Z</button>
+            <button class="key w-8 md:w-10 h-12 brand-light brand-primary-text font-bold rounded-lg transition-all duration-200 hover:bg-gray-300 focus:outline-none" data-key="X" aria-label="X">X</button>
+            <button class="key w-8 md:w-10 h-12 brand-light brand-primary-text font-bold rounded-lg transition-all duration-200 hover:bg-gray-300 focus:outline-none" data-key="C" aria-label="C">C</button>
+            <button class="key w-8 md:w-10 h-12 brand-light brand-primary-text font-bold rounded-lg transition-all duration-200 hover:bg-gray-300 focus:outline-none" data-key="V" aria-label="V">V</button>
+            <button class="key w-8 md:w-10 h-12 brand-light brand-primary-text font-bold rounded-lg transition-all duration-200 hover:bg-gray-300 focus:outline-none" data-key="B" aria-label="B">B</button>
+            <button class="key w-8 md:w-10 h-12 brand-light brand-primary-text font-bold rounded-lg transition-all duration-200 hover:bg-gray-300 focus:outline-none" data-key="N" aria-label="N">N</button>
+            <button class="key w-8 md:w-10 h-12 brand-light brand-primary-text font-bold rounded-lg transition-all duration-200 hover:bg-gray-300 focus:outline-none" data-key="M" aria-label="M">M</button>
+            <button class="key w-16 md:w-20 h-12 brand-secondary text-white font-bold rounded-lg text-sm transition-all duration-200 hover:opacity-90 focus:outline-none" data-key="BACKSPACE" aria-label="Backspace">⌫</button>
+        </div>
+    </div>
+
+    <!-- Game Over Modal -->
+    <div id="gameOverModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden z-50" role="dialog" aria-labelledby="modalTitle" aria-modal="true">
+        <div class="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-sm transform transition-all duration-300 scale-95 opacity-0 border border-gray-200">
+            <h2 id="modalTitle" class="text-2xl font-bold text-center mb-4 brand-primary-text"></h2>
+            <div id="gameResult" class="brand-light p-4 rounded-xl text-sm mb-4 border-l-4 border-green-500"></div>
+            
+            <div class="flex flex-col gap-2 justify-center">
+                <button onclick="closeModal()" class="w-full px-4 py-2 brand-light brand-primary-text rounded-lg font-semibold transition-all duration-300 hover:bg-gray-300 focus:outline-none">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Game State Variables
+        const TARGET_WORD = 'DRIVE';
+        const WORD_LENGTH = 5;
+        
+        let currentGuess = '';
+        let currentRow = 0;
+        let gameOver = false;
+        let guessCount = 0;
+        let gameStarted = false;
+        
+        let startTime = null;
+        let timerInterval = null;
+
+        /**
+         * Initializes the game state and UI components.
+         */
+        function initGame() {
+            currentGuess = '';
+            currentRow = 0;
+            gameOver = false;
+            guessCount = 0;
+            gameStarted = false;
+            
+            // Clear any existing timer and reset the display
+            if (timerInterval) clearInterval(timerInterval);
+            const timerElement = document.getElementById('timer');
+            if (timerElement) {
+                timerElement.textContent = '00:00';
+            }
+            
+            setupBoard();
+            setupKeyboard();
+            hideMessage();
+        }
+
+        /**
+         * Creates the game board tiles dynamically.
+         */
+        function setupBoard() {
+            const board = document.getElementById('gameBoard');
+            board.innerHTML = '';
+            board.className = `grid gap-2 mb-8 w-full max-w-sm`;
+            board.style.gridTemplateColumns = `repeat(${WORD_LENGTH}, minmax(0, 1fr))`;
+            
+            for (let row = 0; row < 6; row++) {
+                for (let col = 0; col < WORD_LENGTH; col++) {
+                    const tile = document.createElement('div');
+                    tile.className = 'flex items-center justify-center aspect-square tile-empty rounded-lg text-2xl font-extrabold uppercase transition-all duration-300';
+                    tile.setAttribute('data-row', row);
+                    tile.setAttribute('data-col', col);
+                    tile.setAttribute('role', 'gridcell');
+                    tile.setAttribute('aria-label', `Row ${row + 1}, Column ${col + 1}`);
+                    board.appendChild(tile);
+                }
+            }
+        }
+
+        /**
+         * Resets the keyboard and adds event listeners.
+         */
+        function setupKeyboard() {
+            const keys = document.querySelectorAll('.key');
+            keys.forEach(key => {
+                // Clone and replace to remove old event listeners
+                const newKey = key.cloneNode(true);
+                key.parentNode.replaceChild(newKey, key);
+            });
+            
+            document.querySelectorAll('.key').forEach(key => {
+                key.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleKeyPress(key.dataset.key);
+                });
+                
+                // Reset key colors based on key type
+                if (key.dataset.key === 'ENTER') {
+                    key.className = 'key w-16 md:w-20 h-12 brand-primary text-white font-bold rounded-lg text-sm transition-all duration-200 hover:opacity-90 focus:outline-none';
+                } else if (key.dataset.key === 'BACKSPACE') {
+                    key.className = 'key w-16 md:w-20 h-12 brand-secondary text-white font-bold rounded-lg text-sm transition-all duration-200 hover:opacity-90 focus:outline-none';
+                } else {
+                    key.className = 'key w-8 md:w-10 h-12 brand-light brand-primary-text font-bold rounded-lg transition-all duration-200 hover:bg-gray-300 focus:outline-none';
+                }
+            });
+        }
+        
+        /**
+         * Starts the game timer.
+         */
+        function startTimer() {
+            if (timerInterval) clearInterval(timerInterval);
+            
+            // Update timer immediately
+            updateTimerDisplay();
+            
+            timerInterval = setInterval(() => {
+                if (!gameOver) {
+                    updateTimerDisplay();
+                }
+            }, 1000);
+        }
+
+        /**
+         * Updates the timer display.
+         */
+        function updateTimerDisplay() {
+            const elapsed = Date.now() - startTime;
+            const minutes = Math.floor(elapsed / 60000);
+            const seconds = Math.floor((elapsed % 60000) / 1000);
+            const timerElement = document.getElementById('timer');
+            if (timerElement) {
+                timerElement.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            }
+        }
+
+        /**
+         * Handles keyboard input from both physical and on-screen keyboards.
+         * @param {string} key - The key pressed.
+         */
+        function handleKeyPress(key) {
+            if (gameOver) return;
+            
+            // Start the timer on the very first valid key press
+            if (!gameStarted && /^[A-Z]$/.test(key)) {
+                gameStarted = true;
+                startTime = Date.now();
+                startTimer();
+            }
+
+            if (key === 'ENTER') {
+                if (currentGuess.length === WORD_LENGTH) {
+                    submitGuess();
+                } else {
+                    showMessage('Not enough letters!', 'bg-red-100 text-red-700 border border-red-200');
+                    // Add a shake effect to the current row
+                    const currentRowTiles = document.querySelectorAll(`[data-row="${currentRow}"]`);
+                    currentRowTiles.forEach(tile => tile.classList.add('shake'));
+                    setTimeout(() => {
+                        currentRowTiles.forEach(tile => tile.classList.remove('shake'));
+                    }, 500);
+                }
+            } else if (key === 'BACKSPACE') {
+                if (currentGuess.length > 0) {
+                    currentGuess = currentGuess.slice(0, -1);
+                    updateBoard();
+                }
+            } else if (currentGuess.length < WORD_LENGTH && /^[A-Z]$/.test(key)) {
+                currentGuess += key;
+                updateBoard();
+            }
+        }
+
+        /**
+         * Updates the game board with the current guess.
+         */
+        function updateBoard() {
+            for (let i = 0; i < WORD_LENGTH; i++) {
+                const tile = document.querySelector(`[data-row="${currentRow}"][data-col="${i}"]`);
+                if (i < currentGuess.length) {
+                    tile.textContent = currentGuess[i];
+                    tile.className = 'flex items-center justify-center aspect-square tile-active rounded-lg text-2xl font-extrabold uppercase transition-all duration-300';
+                } else {
+                    tile.textContent = '';
+                    tile.className = 'flex items-center justify-center aspect-square tile-empty rounded-lg text-2xl font-extrabold uppercase transition-all duration-300';
+                }
+            }
+        }
+
+        /**
+         * Submits the current guess and checks for a win/loss condition.
+         */
+        function submitGuess() {
+            guessCount++;
+            const guess = currentGuess;
+            const result = checkGuess(guess);
+            
+            // Animate tiles and update their colors
+            for (let i = 0; i < WORD_LENGTH; i++) {
+                const tile = document.querySelector(`[data-row="${currentRow}"][data-col="${i}"]`);
+                setTimeout(() => {
+                    tile.classList.add('flip');
+                    
+                    if (result[i] === 'correct') {
+                        tile.className = 'flex items-center justify-center aspect-square tile-correct rounded-lg text-2xl font-extrabold uppercase transition-all duration-300 flip';
+                    } else if (result[i] === 'present') {
+                        tile.className = 'flex items-center justify-center aspect-square tile-present rounded-lg text-2xl font-extrabold uppercase transition-all duration-300 flip';
+                    } else { // absent
+                        tile.className = 'flex items-center justify-center aspect-square tile-absent rounded-lg text-2xl font-extrabold uppercase transition-all duration-300 flip';
+                    }
+                }, i * 300);
+            }
+            
+            // Update keyboard colors after tiles have been processed
+            setTimeout(() => {
+                updateKeyboard(guess, result);
+            }, WORD_LENGTH * 300);
+            
+            if (guess === TARGET_WORD) {
+                gameOver = true;
+                clearInterval(timerInterval);
+                // Add victory animation
+                setTimeout(() => {
+                    const currentRowTiles = document.querySelectorAll(`[data-row="${currentRow}"]`);
+                    currentRowTiles.forEach((tile, index) => {
+                        setTimeout(() => tile.classList.add('bounce'), index * 100);
+                    });
+                }, WORD_LENGTH * 300);
+                setTimeout(() => showGameOverModal(true), WORD_LENGTH * 300 + 800);
+            } else if (currentRow === 5) {
+                gameOver = true;
+                clearInterval(timerInterval);
+                setTimeout(() => showGameOverModal(false), WORD_LENGTH * 300 + 500);
+            } else {
+                currentRow++;
+                currentGuess = '';
+            }
+        }
+
+        /**
+         * Compares the guess to the word and returns an array of result types.
+         * @param {string} guess - The user's guess.
+         * @returns {string[]} An array of 'correct', 'present', or 'absent'.
+         */
+        function checkGuess(guess) {
+            const result = new Array(WORD_LENGTH).fill('absent');
+            const wordArray = TARGET_WORD.split('');
+            const guessArray = guess.split('');
+            
+            // First pass: mark correct letters
+            for (let i = 0; i < WORD_LENGTH; i++) {
+                if (guessArray[i] === wordArray[i]) {
+                    result[i] = 'correct';
+                    wordArray[i] = null;
+                    guessArray[i] = null;
+                }
+            }
+            
+            // Second pass: mark present letters
+            for (let i = 0; i < WORD_LENGTH; i++) {
+                if (guessArray[i] !== null) {
+                    const index = wordArray.indexOf(guessArray[i]);
+                    if (index !== -1) {
+                        result[i] = 'present';
+                        wordArray[index] = null;
+                    }
+                }
+            }
+            
+            return result;
+        }
+
+        /**
+         * Updates the keyboard key colors based on the guess result.
+         * @param {string} guess - The guess string.
+         * @param {string[]} result - The result array.
+         */
+        function updateKeyboard(guess, result) {
+            for (let i = 0; i < guess.length; i++) {
+                const key = document.querySelector(`[data-key="${guess[i]}"]`);
+                if (!key) continue;
+                
+                // Get current state to prioritize colors correctly
+                const isCorrect = key.classList.contains('brand-success');
+                const isPresent = key.classList.contains('brand-warning');
+                
+                // Prioritize 'correct' > 'present' > 'absent'
+                if (result[i] === 'correct') {
+                    key.className = 'key w-8 md:w-10 h-12 brand-success text-white font-bold rounded-lg transition-all duration-200 focus:outline-none';
+                } else if (result[i] === 'present' && !isCorrect) {
+                    key.className = 'key w-8 md:w-10 h-12 brand-warning text-white font-bold rounded-lg transition-all duration-200 focus:outline-none';
+                } else if (result[i] === 'absent' && !isCorrect && !isPresent) {
+                    key.className = 'key w-8 md:w-10 h-12 brand-secondary text-white font-bold rounded-lg transition-all duration-200 focus:outline-none';
+                }
+            }
+        }
+        
+        /**
+         * Shows the game over modal with results.
+         * @param {boolean} won - Whether the player won the game.
+         */
+        function showGameOverModal(won) {
+            const modal = document.getElementById('gameOverModal');
+            const modalContent = modal.querySelector('div');
+            const title = document.getElementById('modalTitle');
+            const result = document.getElementById('gameResult');
+            
+            // Calculate elapsed time
+            const elapsedTime = Date.now() - startTime;
+            const timeSeconds = Math.floor(elapsedTime / 1000);
+            const minutes = Math.floor(timeSeconds / 60);
+            const seconds = timeSeconds % 60;
+            const timeString = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            
+            title.textContent = won ? '🎉 Congratulations!' : '😔 Game Over';
+            
+            result.innerHTML = `
+                <div class="flex justify-between mb-1"><span>Word:</span><span class="font-bold">${TARGET_WORD}</span></div>
+                <div class="flex justify-between mb-1"><span>Guesses:</span><span>${guessCount}/6</span></div>
+                <div class="flex justify-between mb-1"><span>Time:</span><span>${timeString}</span></div>
+                <div class="flex justify-between font-bold border-t border-gray-300 pt-2 mt-2" style="color: var(--brand-primary)"><span>Result:</span><span>${won ? 'Victory!' : 'Better luck next time!'}</span></div>
+            `;
+            
+            // Update border color based on result
+            result.className = won 
+                ? 'brand-light p-4 rounded-xl text-sm mb-4 border-l-4 border-green-500'
+                : 'brand-light p-4 rounded-xl text-sm mb-4 border-l-4 border-red-500';
+            
+            modal.style.display = 'flex';
+            setTimeout(() => {
+                modalContent.classList.remove('scale-95', 'opacity-0');
+                modalContent.classList.add('scale-100', 'opacity-100');
+            }, 10);
+        }
+
+        /**
+         * Resets the game to initial state.
+         */
+        function resetGame() {
+            closeModal();
+            setTimeout(() => {
+                initGame();
+            }, 300);
+        }
+
+        /**
+         * Closes the game over modal.
+         */
+        function closeModal() {
+            const modal = document.getElementById('gameOverModal');
+            const modalContent = modal.querySelector('div');
+            modalContent.classList.remove('scale-100', 'opacity-100');
+            modalContent.classList.add('scale-95', 'opacity-0');
+            setTimeout(() => {
+                modal.style.display = 'none';
+            }, 300);
+        }
+        
+        /**
+         * Displays a temporary message to the user.
+         * @param {string} text - The message to display.
+         * @param {string} classes - Tailwind classes for styling the message.
+         */
+        function showMessage(text, classes) {
+            const message = document.getElementById('message');
+            message.textContent = text;
+            message.className = `p-3 rounded-lg w-full max-w-lg text-center fade-in ${classes}`;
+            message.style.display = 'block';
+            
+            setTimeout(() => {
+                message.style.display = 'none';
+            }, 3000);
+        }
+
+        /**
+         * Hides the message display.
+         */
+        function hideMessage() {
+            document.getElementById('message').style.display = 'none';
+        }
+
+        // Event Listeners
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                handleKeyPress('ENTER');
+            } else if (e.key === 'Backspace') {
+                handleKeyPress('BACKSPACE');
+            } else if (/^[a-zA-Z]$/.test(e.key)) {
+                handleKeyPress(e.key.toUpperCase());
+            }
+        });
+
+        // Initialize the game on window load
+        window.onload = initGame;
+    </script>
+</body>
+</html>
