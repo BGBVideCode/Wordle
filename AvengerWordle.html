@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wordle Guess</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom font and scrollbar hide */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .grid-cell {
+            transition: transform 0.6s ease-out, background-color 0.3s, border-color 0.3s;
+            transform-style: preserve-3d;
+            height: 2rem; /* Adjusted for 10-letter word */
+            width: 2rem;  /* Adjusted for 10-letter word */
+            border: 2px solid #374151; /* Default border gray-700 */
+        }
+        @media (min-width: 640px) {
+             .grid-cell {
+                height: 2.5rem; /* Adjusted for 10-letter word */
+                width: 2.5rem;  /* Adjusted for 10-letter word */
+            }
+        }
+        
+        /* New class for the inner content wrapper */
+        .grid-cell-content {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.6s ease-out; /* Match parent transition speed */
+            font-size: 1rem; /* Adjusted for smaller cells */
+            font-weight: 700;    /* font-bold from Tailwind */
+            text-transform: uppercase;
+        }
+
+        @media (min-width: 640px) {
+            .grid-cell-content {
+                font-size: 1.25rem; /* text-xl */
+            }
+        }
+
+        /* Flip animation for guess reveal */
+        .flipped {
+            /* Now the cell rotates 180 degrees */
+            transform: rotateX(180deg);
+        }
+        
+        /* Counter-rotation for inner content to keep text readable */
+        .flipped .grid-cell-content {
+            transform: rotateX(-180deg);
+        }
+
+        /* Shake animation for invalid guess */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-6px); }
+            20%, 40%, 60%, 80% { transform: translateX(6px); }
+        }
+        .shake {
+            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+        }
+
+        /* Message Box animation */
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translate(-50%, -20px); }
+            to { opacity: 1; transform: translate(-50%, 0); }
+        }
+        #message-box {
+            animation: fadeInDown 0.3s ease-out;
+        }
+
+        /* --- NEW: Bounce animation for winning row --- */
+        @keyframes bounce-flipped-cell {
+            0%, 20%, 50%, 80%, 100% {
+                transform: rotateX(180deg) translateY(0);
+            }
+            40% {
+                transform: rotateX(180deg) translateY(-20px);
+            }
+            60% {
+                transform: rotateX(180deg) translateY(-10px);
+            }
+        }
+
+        .bounce-win {
+            /* This animation includes the 'flipped' state */
+            animation: bounce-flipped-cell 1s ease-out;
+            /* Ensure it stays flipped after animation */
+            transform: rotateX(180deg); 
+        }
+        /* --- End of new styles --- */
+
+
+        /* Custom Keyboard Keys - Dark theme with glow */
+        .key {
+            background-color: #374151; /* Gray-700 */
+            color: #E5E7EB; /* Gray-200 */
+            transition: background-color 0.2s, transform 0.1s;
+        }
+        .key:hover {
+            background-color: #4B5563; /* Gray-600 */
+        }
+
+        /* Themed Colors for results */
+        .key-correct, .bg-correct { /* Hulk Green */
+            background-color: #10B981 !important;
+            border-color: #10B981 !important;
+        }
+        .key-present, .bg-present { /* Iron Man Gold */
+            background-color: #FBBF24 !important;
+            border-color: #FBBF24 !important;
+        }
+        .key-absent, .bg-absent { /* Stark Tech Gray */
+            background-color: #4B5563 !important;
+            border-color: #4B5563 !important;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen flex flex-col items-center p-4">
+
+    <!-- Header -->
+    <header class="w-full max-w-lg mb-6 border-b border-red-600 pb-3">
+        <h1 class="text-3xl font-extrabold tracking-widest text-center text-red-600 uppercase">
+            AVENGERS WORDLE
+        </h1>
+        <p class="text-center text-sm text-yellow-400 mt-1">Stark Protocol Activated</p>
+    </header>
+
+    <!-- Hint Section -->
+    <div id="hint-container" class="w-full max-w-sm sm:max-w-lg mb-6 bg-gray-800 p-4 rounded-lg shadow-xl border border-red-600">
+        <h2 class="text-lg font-semibold text-red-400 mb-2">HINT:</h2>
+        <p class="text-sm text-gray-300">
+            Think about a word that describes our biggest impact our biosimilars can have on patients or providers   </p>
+    </div>
+
+    <!-- Game Grid -->
+    <div id="game-grid" class="flex flex-col gap-2 mb-8">
+        <!-- Grid will be populated by JavaScript -->
+    </div>
+
+    <!-- Message Box -->
+    <div id="message-box" class="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 p-3 rounded-lg text-center text-sm font-semibold shadow-lg hidden">
+        <!-- Messages appear here -->
+    </div>
+
+    <!-- Keyboard Container -->
+    <div id="keyboard" class="w-full max-w-lg pt-4">
+        <!-- Keyboard will be populated by JavaScript -->
+    </div>
+
+    <script>
+        // --- Game Configuration ---
+        const SECRET_WORD = "CONFIDENCE";
+        const MAX_GUESSES = 6;
+        const WORD_LENGTH = 10; // UPDATED: Changed from 5 to 10
+
+        // --- DOM Elements ---
+        const gridElement = document.getElementById('game-grid');
+        const keyboardElement = document.getElementById('keyboard');
+        const messageBox = document.getElementById('message-box');
+
+        // --- Game State ---
+        let currentGuess = [];
+        let currentRow = 0;
+        let gameStatus = 'playing'; // 'playing', 'won', 'lost'
+
+        // --- Utility Functions ---
+
+        /**
+         * Shows a temporary message box.
+         * @param {string} message The message to display.
+         * @param {string} type 'success', 'error', or 'info' for styling.
+         */
+        function showMessage(message, type = 'info') {
+            let bgColor = 'bg-gray-700';
+            if (type === 'success') bgColor = 'bg-green-600';
+            if (type === 'error') bgColor = 'bg-red-600';
+
+            messageBox.textContent = message;
+            messageBox.className = `fixed top-4 left-1/2 transform -translate-x-1/2 z-50 p-3 rounded-lg text-center text-sm font-semibold shadow-lg ${bgColor} text-white block`;
+
+            // Clear the message after 2 seconds
+            setTimeout(() => {
+                messageBox.classList.add('hidden');
+            }, 2000);
+        }
+
+        // --- UI Initialization ---
+
+        /**
+         * Creates the grid of cells.
+         */
+        function initializeGrid() {
+            for (let i = 0; i < MAX_GUESSES; i++) {
+                const row = document.createElement('div');
+                row.className = 'flex gap-1 justify-center'; // UPDATED: gap-1 for tighter fit
+                row.id = `row-${i}`;
+
+                for (let j = 0; j < WORD_LENGTH; j++) {
+                    const cell = document.createElement('div');
+                    // Removed text-3xl, font-bold, uppercase here to apply them to the content span
+                    cell.className = 'grid-cell flex items-center justify-center rounded-md'; 
+                    cell.id = `cell-${i}-${j}`;
+                    
+                    // Added a content span inside the cell for text and counter-rotation
+                    const content = document.createElement('span');
+                    content.className = 'grid-cell-content';
+                    cell.appendChild(content);
+
+                    row.appendChild(cell);
+                }
+                gridElement.appendChild(row);
+            }
+        }
+
+        /**
+         * Creates the on-screen keyboard.
+         */
+        function initializeKeyboard() {
+            const layout = [
+                'QWERTYUIOP'.split(''),
+                'ASDFGHJKL'.split(''),
+                ['ENTER', ...'ZXCVBNM'.split(''), 'BACKSPACE']
+            ];
+
+            layout.forEach(rowKeys => {
+                const row = document.createElement('div');
+                row.className = 'flex justify-center gap-1 mb-1';
+
+                rowKeys.forEach(key => {
+                    const button = document.createElement('button');
+                    button.textContent = key === 'BACKSPACE' ? '⌫' : key;
+                    button.dataset.key = key;
+                    button.className = 'key flex items-center justify-center p-2 rounded-md font-bold text-sm h-12 flex-1 max-w-[40px] transition-colors duration-300';
+
+                    if (key === 'ENTER' || key === 'BACKSPACE') {
+                         button.className = 'key text-xs h-12 px-3 rounded-md font-bold transition-colors duration-300 w-auto flex-2';
+                    }
+
+                    button.addEventListener('click', () => handleKeyInput(key));
+                    row.appendChild(button);
+                });
+                keyboardElement.appendChild(row);
+            });
+        }
+
+        // --- Game Logic ---
+
+        /**
+         * Processes a letter input.
+         * @param {string} key The letter or command.
+         */
+        function handleKeyInput(key) {
+            if (gameStatus !== 'playing') return;
+
+            const letter = key.toUpperCase();
+
+            if (letter === 'ENTER') {
+                checkGuess();
+            } else if (letter === 'BACKSPACE') {
+                deleteLetter();
+            } else if (letter.length === 1 && letter >= 'A' && letter <= 'Z') {
+                addLetter(letter);
+            }
+        }
+
+        /**
+         * Adds a letter to the current guess.
+         * @param {string} letter The letter to add.
+         */
+        function addLetter(letter) {
+            if (currentGuess.length < WORD_LENGTH) {
+                currentGuess.push(letter);
+                const cell = document.getElementById(`cell-${currentRow}-${currentGuess.length - 1}`);
+                const content = cell.querySelector('.grid-cell-content');
+                content.textContent = letter;
+                cell.classList.add('border-yellow-400'); // Highlight current cell
+            }
+        }
+
+        /**
+         * Deletes the last letter from the current guess.
+         */
+        function deleteLetter() {
+            if (currentGuess.length > 0) {
+                const cellIndex = currentGuess.length - 1;
+                const cell = document.getElementById(`cell-${currentRow}-${cellIndex}`);
+                const content = cell.querySelector('.grid-cell-content');
+                content.textContent = '';
+                cell.classList.remove('border-yellow-400'); // Remove highlight
+                currentGuess.pop();
+            }
+        }
+
+        /**
+         * Checks the submitted guess against the secret word.
+         */
+        function checkGuess() {
+            const guess = currentGuess.join('');
+            if (guess.length !== WORD_LENGTH) {
+                // UPDATED: Changed message to require 10 letters
+                showMessage("INSUFFICIENT DATA: Requires 10 letters.", 'error');
+                shakeRow();
+                return;
+            }
+
+            // In a real Wordle, you'd check a dictionary here. For this demo, we skip it.
+            // if (!isValidWord(guess)) { showMessage("Not a valid word", 'error'); return; }
+
+            const rowElement = document.getElementById(`row-${currentRow}`);
+            const cells = rowElement.querySelectorAll('.grid-cell');
+            const word = SECRET_WORD.split('');
+            const guessLetters = guess.split('');
+            const feedback = Array(WORD_LENGTH).fill(null);
+            const wordMap = {};
+
+            // 1. Build a map of letter counts in the secret word
+            word.forEach(letter => {
+                wordMap[letter] = (wordMap[letter] || 0) + 1;
+            });
+
+            // 2. Identify GREEN (Correct Position) letters first
+            for (let i = 0; i < WORD_LENGTH; i++) {
+                if (guessLetters[i] === word[i]) {
+                    feedback[i] = 'correct';
+                    wordMap[guessLetters[i]]--;
+                }
+            }
+
+            // 3. Identify YELLOW (Present but Wrong Position) letters
+            for (let i = 0; i < WORD_LENGTH; i++) {
+                if (feedback[i] === null) {
+                    const letter = guessLetters[i];
+                    if (wordMap[letter] && wordMap[letter] > 0) {
+                        feedback[i] = 'present';
+                        wordMap[letter]--;
+                    } else {
+                        feedback[i] = 'absent';
+                    }
+                }
+            }
+
+            // 4. Animate and apply styles
+            cells.forEach((cell, index) => {
+                const result = feedback[index];
+                const keyButton = document.querySelector(`[data-key="${guessLetters[index]}"]`);
+
+                setTimeout(() => {
+                    // Set content before flip
+                    const content = cell.querySelector('.grid-cell-content');
+                    content.textContent = guessLetters[index]; 
+
+                    cell.classList.remove('border-yellow-400', 'border-gray-700');
+                    // Add color class and flip class simultaneously
+                    cell.classList.add('flipped', `bg-${result}`);
+
+                    // Update keyboard color (prioritize green > yellow > gray)
+                    if (result === 'correct') {
+                        keyButton.classList.remove('key-present', 'key-absent');
+                        keyButton.classList.add('key-correct');
+                    } else if (result === 'present' && !keyButton.classList.contains('key-correct')) {
+                        keyButton.classList.remove('key-absent');
+                        keyButton.classList.add('key-present');
+                    } else if (result === 'absent' && !keyButton.classList.contains('key-correct') && !keyButton.classList.contains('key-present')) {
+                         keyButton.classList.add('key-absent');
+                    }
+                }, index * 200); // Stagger the animation
+
+            });
+
+            // 5. Check Game End conditions
+            setTimeout(() => {
+                if (guess === SECRET_WORD) {
+                    gameStatus = 'won';
+                    // UPDATED: Changed win message
+                    showMessage("MISSION ACCOMPLISHED! Word: CONFIDENCE", 'success');
+                    
+                    // --- NEW: Add bounce animation to winning row ---
+                    const rowElement = document.getElementById(`row-${currentRow}`);
+                    const cells = rowElement.querySelectorAll('.grid-cell');
+                    cells.forEach((cell, index) => {
+                        setTimeout(() => {
+                            cell.classList.add('bounce-win');
+                        }, index * 100); // Stagger the bounce
+                    });
+                    // --- End of new code ---
+
+                } else if (currentRow === MAX_GUESSES - 1) {
+                    gameStatus = 'lost';
+                    showMessage(`DEFEAT! The word was ${SECRET_WORD}.`, 'error');
+                } else {
+                    currentRow++;
+                    currentGuess = [];
+                }
+            }, WORD_LENGTH * 200); // Wait for animations to finish
+        }
+
+        /**
+         * Adds a shaking animation to the current row.
+         */
+        function shakeRow() {
+            const rowElement = document.getElementById(`row-${currentRow}`);
+            rowElement.classList.add('shake');
+            setTimeout(() => {
+                rowElement.classList.remove('shake');
+            }, 500);
+        }
+
+        // --- Event Listeners and Setup ---
+        window.addEventListener('keydown', (e) => {
+            if (gameStatus !== 'playing') return;
+
+            const key = e.key.toUpperCase();
+
+            if (key === 'ENTER') {
+                handleKeyInput('ENTER');
+            } else if (key === 'BACKSPACE') {
+                handleKeyInput('BACKSPACE');
+            } else if (key.length === 1 && key >= 'A' && key <= 'Z') {
+                handleKeyInput(key);
+            }
+        });
+
+        // Initialize the game when the window loads
+        window.onload = () => {
+            initializeGrid();
+            initializeKeyboard();
+        };
+
+    </script>
+</body>
+</html>
+
