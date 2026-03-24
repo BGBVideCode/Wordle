@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Team Wordle</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #F28705;
+            --pink: #F2A25C;
+            --dark: #3E4F59;
+            --teal: #F28705;
+            --white: #F2F2F2;
+            --light: #F2F2F2;
+            --mid: #74838C;
+            --muted: #74838C;
+            --correct: #F28705;
+            --present: #F2A25C;
+            --absent: #74838C;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'DM Mono', monospace;
+            background: var(--dark);
+            color: var(--white);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 24px 16px 40px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 28px;
+        }
+
+        h1 {
+            font-family: 'Syne', sans-serif;
+            font-size: clamp(1.6rem, 5vw, 2.4rem);
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            color: var(--white);
+            line-height: 1.1;
+        }
+
+        h1 span { color: var(--teal); }
+
+        .subtitle {
+            font-size: 0.75rem;
+            color: var(--muted);
+            margin-top: 6px;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+        }
+
+        .timer {
+            font-family: 'Syne', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--teal);
+            background: rgba(242, 135, 5, 0.1);
+            border: 1px solid rgba(242, 135, 5, 0.3);
+            border-radius: 999px;
+            padding: 6px 24px;
+            margin-bottom: 24px;
+            letter-spacing: 0.05em;
+        }
+
+        #message {
+            display: none;
+            font-size: 0.8rem;
+            text-align: center;
+            padding: 10px 20px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            max-width: 360px;
+            width: 100%;
+        }
+        #message.error  { background: rgba(222,99,153,0.15); color: var(--pink); border: 1px solid var(--pink); }
+        #message.success { background: rgba(74,222,222,0.15); color: var(--teal); border: 1px solid var(--teal); }
+
+        #gameBoard {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 8px;
+            margin-bottom: 28px;
+            width: min(300px, 90vw);
+        }
+
+        .tile {
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Syne', sans-serif;
+            font-size: 1.6rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            border: 2px solid rgba(255,255,255,0.12);
+            border-radius: 8px;
+            background: rgba(255,255,255,0.04);
+            color: var(--white);
+            transition: border-color 0.15s;
+        }
+
+        .tile.filled   { border-color: rgba(255,255,255,0.35); background: rgba(255,255,255,0.08); }
+        .tile.correct  { background: var(--correct); border-color: var(--correct); }
+        .tile.present  { background: var(--present); border-color: var(--present); }
+        .tile.absent   { background: var(--absent);  border-color: var(--absent);  }
+
+        .tile.flip { animation: flip 0.5s ease-in-out forwards; }
+        @keyframes flip {
+            0%   { transform: rotateX(0); }
+            49%  { transform: rotateX(90deg); }
+            50%  { transform: rotateX(90deg); }
+            100% { transform: rotateX(0); }
+        }
+
+        .shake { animation: shake 0.4s ease both; }
+        @keyframes shake {
+            0%,100%  { transform: translateX(0); }
+            20%,60%  { transform: translateX(-4px); }
+            40%,80%  { transform: translateX(4px); }
+        }
+
+        #keyboard { width: min(480px, 98vw); }
+
+        .key-row {
+            display: flex;
+            justify-content: center;
+            gap: 5px;
+            margin-bottom: 5px;
+        }
+
+        .key {
+            height: 52px;
+            min-width: 36px;
+            padding: 0 4px;
+            border: none;
+            border-radius: 7px;
+            font-family: 'DM Mono', monospace;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            background: rgba(255,255,255,0.12);
+            color: var(--white);
+            transition: background 0.2s, transform 0.1s;
+            flex: 1;
+            max-width: 42px;
+        }
+
+        .key:active { transform: scale(0.93); }
+        .key.wide   { max-width: 64px; font-size: 0.7rem; }
+        .key.correct { background: var(--correct); }
+        .key.present { background: var(--present); }
+        .key.absent  { background: var(--absent); opacity: 0.6; }
+
+        .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(2,12,40,0.85);
+            backdrop-filter: blur(4px);
+            z-index: 50;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .modal-box {
+            background: #2C3A42;
+            border: 1px solid rgba(242, 135, 5, 0.25);
+            border-radius: 16px;
+            padding: 28px 24px;
+            width: 100%;
+            max-width: 360px;
+            animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .modal-title {
+            font-family: 'Syne', sans-serif;
+            font-size: 1.4rem;
+            font-weight: 800;
+            text-align: center;
+            margin-bottom: 16px;
+            color: var(--white);
+        }
+
+        .receipt {
+            background: rgba(255,255,255,0.04);
+            border-left: 3px solid var(--teal);
+            border-radius: 8px;
+            padding: 14px;
+            font-size: 0.8rem;
+            margin-bottom: 16px;
+        }
+
+        .receipt-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 3px 0;
+            color: var(--muted);
+        }
+        .receipt-row span:last-child { color: var(--white); font-weight: 500; }
+        .receipt-row.total { border-top: 1px solid rgba(255,255,255,0.1); margin-top: 8px; padding-top: 10px; color: var(--white); font-weight: 700; }
+
+        .name-input {
+            width: 100%;
+            padding: 10px 14px;
+            background: rgba(255,255,255,0.07);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 8px;
+            color: var(--white);
+            font-family: 'DM Mono', monospace;
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+            outline: none;
+            text-align: center;
+        }
+        .name-input:focus { border-color: var(--primary); }
+        .name-input::placeholder { color: var(--muted); }
+
+        .btn {
+            width: 100%;
+            padding: 11px;
+            border: none;
+            border-radius: 8px;
+            font-family: 'Syne', sans-serif;
+            font-weight: 700;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: opacity 0.2s, transform 0.1s;
+            margin-bottom: 8px;
+        }
+        .btn:active    { transform: scale(0.97); }
+        .btn-primary   { background: var(--primary); color: #F2F2F2; }
+        .btn-secondary { background: rgba(255,255,255,0.1); color: var(--white); }
+        .btn:disabled  { opacity: 0.5; cursor: not-allowed; }
+
+        .lb-section-title {
+            font-family: 'Syne', sans-serif;
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--teal);
+            margin-bottom: 8px;
+        }
+
+        .lb-list { max-height: 260px; overflow-y: auto; }
+
+        .lb-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            border-radius: 8px;
+            margin-bottom: 6px;
+            background: rgba(255,255,255,0.05);
+            font-size: 0.8rem;
+        }
+        .lb-row.highlight { background: rgba(242,135,5,0.12); border-left: 3px solid var(--teal); }
+
+        .lb-rank  { font-family: 'Syne', sans-serif; font-weight: 800; color: var(--teal); width: 24px; flex-shrink: 0; }
+        .lb-name  { flex: 1; color: var(--white); font-weight: 500; }
+        .lb-stats { color: var(--muted); text-align: right; line-height: 1.5; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Team <span>Wordle</span></h1>
+        <p class="subtitle">5 Letters &bull; 6 Guesses</p>
+    </header>
+
+    <div class="timer" id="timer">00:00</div>
+    <div id="message"></div>
+    <div id="gameBoard"></div>
+
+    <div id="keyboard">
+        <div class="key-row" id="row1"></div>
+        <div class="key-row" id="row2"></div>
+        <div class="key-row" id="row3"></div>
+    </div>
+
+    <!-- Game Over Modal -->
+    <div class="modal-backdrop" id="gameOverModal" style="display:none;">
+        <div class="modal-box">
+            <div class="modal-title" id="modalTitle"></div>
+            <div class="receipt" id="receipt"></div>
+
+            <div id="submitSection">
+                <input type="text" class="name-input" id="playerNameInput" placeholder="Enter your name" maxlength="20" autocomplete="off">
+                <button class="btn btn-primary" id="submitBtn" onclick="submitScore()">Submit to Leaderboard</button>
+            </div>
+
+            <div id="lbSection" style="display:none;">
+                <div class="lb-section-title">Leaderboard</div>
+                <div class="lb-list" id="lbList"></div>
+            </div>
+
+            <button class="btn btn-secondary" onclick="closeModal()" style="margin-top:4px;">Close</button>
+        </div>
+    </div>
+
+    <script>
+    // ─── CONFIGURE THESE ────────────────────────────────────────────
+       const SUPABASE_URL     = 'https://xpvirzgqsynimtvpgdbg.supabase.co';       // e.g. https://abcxyz.supabase.co
+        const SUPABASE_ANON_KEY = 'sb_publishable_XLZaDHyZkzvwqFRNBEhiOg_HmtPXRUY'; // from Project Settings > API
+    // ────────────────────────────────────────────────────────────────
+
+        const TARGET     = 'BUILD';
+        const MAX_GUESSES = 6;
+        const WORD_LEN    = TARGET.length;
+
+        const KB_ROWS = [
+            ['Q','W','E','R','T','Y','U','I','O','P'],
+            ['A','S','D','F','G','H','J','K','L'],
+            ['ENTER','Z','X','C','V','B','N','M','⌫']
+        ];
+
+        let currentGuess  = '';
+        let currentRow    = 0;
+        let gameOver      = false;
+        let startTime     = null;
+        let timerInterval = null;
+        let guessCount    = 0;
+        let submittedName = null;
+
+        // ── Build UI ───────────────────────────────────────────────────
+        function buildBoard() {
+            const board = document.getElementById('gameBoard');
+            for (let r = 0; r < MAX_GUESSES; r++) {
+                for (let c = 0; c < WORD_LEN; c++) {
+                    const tile = document.createElement('div');
+                    tile.classList.add('tile');
+                    tile.id = `t-${r}-${c}`;
+                    board.appendChild(tile);
+                }
+            }
+        }
+
+        function buildKeyboard() {
+            KB_ROWS.forEach((row, i) => {
+                const rowEl = document.getElementById(`row${i + 1}`);
+                row.forEach(k => {
+                    const btn = document.createElement('button');
+                    btn.classList.add('key');
+                    btn.textContent = k;
+                    btn.dataset.key = k === '⌫' ? 'BACKSPACE' : k;
+                    if (k === 'ENTER' || k === '⌫') btn.classList.add('wide');
+                    btn.addEventListener('click', () => handleKey(btn.dataset.key));
+                    rowEl.appendChild(btn);
+                });
+            });
+        }
+
+        // ── Timer ──────────────────────────────────────────────────────
+        function startTimer() {
+            startTime = Date.now();
+            timerInterval = setInterval(() => {
+                const e = Date.now() - startTime;
+                const m = Math.floor(e / 60000);
+                const s = Math.floor((e % 60000) / 1000);
+                document.getElementById('timer').textContent =
+                    `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+            }, 500);
+        }
+
+        function stopTimer() { clearInterval(timerInterval); }
+        function elapsedSec() { return Math.floor((Date.now() - startTime) / 1000); }
+
+        // ── Input ──────────────────────────────────────────────────────
+        function handleKey(key) {
+            if (gameOver) return;
+            if (key === 'ENTER') {
+                if (currentGuess.length < WORD_LEN) { showMsg('Not enough letters', 'error'); shakeRow(); }
+                else submitGuess();
+            } else if (key === 'BACKSPACE') {
+                currentGuess = currentGuess.slice(0, -1);
+                renderRow();
+            } else if (/^[A-Z]$/.test(key) && currentGuess.length < WORD_LEN) {
+                currentGuess += key;
+                renderRow();
+            }
+        }
+
+        document.addEventListener('keydown', e => {
+            if (e.ctrlKey || e.metaKey || e.altKey) return;
+            if (e.key === 'Enter') handleKey('ENTER');
+            else if (e.key === 'Backspace') handleKey('BACKSPACE');
+            else if (/^[a-zA-Z]$/.test(e.key)) handleKey(e.key.toUpperCase());
+        });
+
+        function renderRow() {
+            for (let c = 0; c < WORD_LEN; c++) {
+                const tile = document.getElementById(`t-${currentRow}-${c}`);
+                tile.textContent = currentGuess[c] || '';
+                tile.classList.toggle('filled', c < currentGuess.length);
+            }
+        }
+
+        // ── Guess Logic ────────────────────────────────────────────────
+        function checkGuess(guess) {
+            const result = Array(WORD_LEN).fill('absent');
+            const tArr   = TARGET.split('');
+            const gArr   = guess.split('');
+            gArr.forEach((ch, i) => {
+                if (ch === tArr[i]) { result[i] = 'correct'; tArr[i] = null; gArr[i] = null; }
+            });
+            gArr.forEach((ch, i) => {
+                if (!ch) return;
+                const idx = tArr.indexOf(ch);
+                if (idx !== -1) { result[i] = 'present'; tArr[idx] = null; }
+            });
+            return result;
+        }
+
+        function submitGuess() {
+            guessCount++;
+            const guess  = currentGuess;
+            const result = checkGuess(guess);
+
+            for (let c = 0; c < WORD_LEN; c++) {
+                const tile = document.getElementById(`t-${currentRow}-${c}`);
+                setTimeout(() => {
+                    tile.classList.add('flip');
+                    setTimeout(() => {
+                        tile.classList.remove('filled');
+                        tile.classList.add(result[c]);
+                    }, 250);
+                }, c * 200);
+            }
+
+            setTimeout(() => {
+                updateKeyboard(guess, result);
+                const won = guess === TARGET;
+                if (won || currentRow === MAX_GUESSES - 1) {
+                    gameOver = true;
+                    stopTimer();
+                    setTimeout(() => openModal(won), 400);
+                } else {
+                    currentRow++;
+                    currentGuess = '';
+                }
+            }, WORD_LEN * 200 + 300);
+        }
+
+        function updateKeyboard(guess, result) {
+            const priority = { correct: 3, present: 2, absent: 1 };
+            guess.split('').forEach((ch, i) => {
+                const key = document.querySelector(`[data-key="${ch}"]`);
+                if (!key) return;
+                const curr = key.classList.contains('correct') ? 3
+                           : key.classList.contains('present') ? 2
+                           : key.classList.contains('absent')  ? 1 : 0;
+                if ((priority[result[i]] || 0) > curr) {
+                    key.classList.remove('correct','present','absent');
+                    key.classList.add(result[i]);
+                }
+            });
+        }
+
+        // ── UI Helpers ─────────────────────────────────────────────────
+        function shakeRow() {
+            for (let c = 0; c < WORD_LEN; c++) {
+                const t = document.getElementById(`t-${currentRow}-${c}`);
+                t.classList.add('shake');
+                setTimeout(() => t.classList.remove('shake'), 400);
+            }
+        }
+
+        function showMsg(text, type) {
+            const el = document.getElementById('message');
+            el.textContent = text;
+            el.className   = type;
+            el.style.display = 'block';
+            clearTimeout(el._t);
+            el._t = setTimeout(() => { el.style.display = 'none'; }, 2500);
+        }
+
+        function fmt(sec) {
+            return `${String(Math.floor(sec/60)).padStart(2,'0')}:${String(sec%60).padStart(2,'0')}`;
+        }
+
+        // ── Modal ──────────────────────────────────────────────────────
+        function openModal(won) {
+            const t = elapsedSec();
+            document.getElementById('modalTitle').textContent = won ? '🎉 You got it!' : `The word was ${TARGET}`;
+            document.getElementById('receipt').innerHTML = `
+                <div class="receipt-row"><span>Guesses</span><span>${guessCount}/6</span></div>
+                <div class="receipt-row"><span>Time</span><span>${fmt(t)}</span></div>
+                <div class="receipt-row total"><span>Result</span><span>${won ? 'WIN' : 'LOSS'}</span></div>
+            `;
+            document.getElementById('submitSection').style.display = won ? 'block' : 'none';
+            document.getElementById('lbSection').style.display     = 'none';
+            document.getElementById('gameOverModal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('gameOverModal').style.display = 'none';
+        }
+
+        // ── Supabase ───────────────────────────────────────────────────
+        const headers = {
+            'apikey':        SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+            'Content-Type':  'application/json'
+        };
+
+        async function submitScore() {
+            const name = document.getElementById('playerNameInput').value.trim();
+            if (!name) { showMsg('Enter your name first', 'error'); return; }
+            const btn = document.getElementById('submitBtn');
+            btn.disabled    = true;
+            btn.textContent = 'Submitting...';
+            try {
+                const res = await fetch(`${SUPABASE_URL}/rest/v1/leaderboard`, {
+                    method: 'POST',
+                    headers: { ...headers, 'Prefer': 'return=minimal' },
+                    body: JSON.stringify({ player_name: name, guesses: guessCount, time_seconds: elapsedSec(), won: true, word: TARGET })
+                });
+                if (!res.ok) throw new Error();
+                submittedName = name;
+                document.getElementById('submitSection').style.display = 'none';
+                await loadLeaderboard();
+                document.getElementById('lbSection').style.display = 'block';
+            } catch {
+                showMsg('Submit failed. Check your Supabase config.', 'error');
+                btn.disabled    = false;
+                btn.textContent = 'Submit to Leaderboard';
+            }
+        }
+
+        async function loadLeaderboard() {
+            const list = document.getElementById('lbList');
+            list.innerHTML = '<div style="color:var(--muted);font-size:0.8rem;padding:8px 0;">Loading...</div>';
+            try {
+                const res = await fetch(
+                    `${SUPABASE_URL}/rest/v1/leaderboard?won=eq.true&word=eq.${TARGET}&order=guesses.asc,time_seconds.asc&limit=10`,
+                    { headers }
+                );
+                const scores = await res.json();
+                if (!scores.length) {
+                    list.innerHTML = '<div style="color:var(--muted);font-size:0.8rem;padding:8px 0;">No scores yet.</div>';
+                    return;
+                }
+                list.innerHTML = scores.map((s, i) => {
+                    const isYou = s.player_name === submittedName;
+                    return `<div class="lb-row ${isYou ? 'highlight' : ''}">
+                        <div class="lb-rank">#${i + 1}</div>
+                        <div class="lb-name">${s.player_name}${isYou ? ' (you)' : ''}</div>
+                        <div class="lb-stats">${s.guesses}/6 guesses<br>${fmt(s.time_seconds)}</div>
+                    </div>`;
+                }).join('');
+            } catch {
+                list.innerHTML = '<div style="color:var(--muted);font-size:0.8rem;padding:8px 0;">Could not load leaderboard.</div>';
+            }
+        }
+
+        // ── Init ───────────────────────────────────────────────────────
+        buildBoard();
+        buildKeyboard();
+        startTimer();
+    </script>
+</body>
+</html>
